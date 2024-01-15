@@ -43,21 +43,55 @@ class BertBaseline(pl.LightningModule):
                 param.requires_grad = False
     
     def encode(self, x):
-        x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True)
+        x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True).to(self.device)
         x = self.model(**x).last_hidden_state[:, 0, :]
         return x
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        return optimizer
 
     def forward(self, x):
-        utterances = x['utterances']
-        encoded_utterances = torch.stack([self.encode(utterance) for utterance in utterances], dim=1)
-        emotion_logits = self.emotion_clf(encoded_utterances)
-        trigger_logits = self.trigger_clf(encoded_utterances)
+        batch_utterances = x['utterances']
+        batch_encoded_utterances = []
+        for utterances in batch_utterances:
+            encoded_utterances = self.encode(utterances)
+            batch_encoded_utterances.append(encoded_utterances)
+        # Pad with zeros
+        batch_encoded_utterances = torch.nn.utils.rnn.pad_sequence(batch_encoded_utterances, batch_first=True, padding_value=-1)
+        emotion_logits = self.emotion_clf(batch_encoded_utterances)
+        trigger_logits = self.trigger_clf(batch_encoded_utterances)
         return emotion_logits, trigger_logits
     
     def training_step(self, batch, batch_idx):
         emotion_logits, trigger_logits = self(batch)
-        emotion_loss = torch.nn.CrossEntropyLoss()(emotion_logits, batch['emotion'])
-        trigger_loss = torch.nn.BCELoss()(trigger_logits, batch['trigger'])
+
+        # Since the trigger is a binary classification task, we need to squeeze the last dimension
+        # [batch_size, seq_len, 1] -> [batch_size, seq_len] 
+        trigger_logits = trigger_logits.squeeze(-1)
+        emotion_logits = torch.movedim(emotion_logits, 1, 2)
+
+        emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, batch['emotions'])
+        trigger_loss = torch.nn.BCELoss(ignore_index=-1)(trigger_logits, batch['triggers'])
         loss = emotion_loss + trigger_loss
         self.log('train_loss', loss)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        emotion_logits, trigger_logits = self(batch)
+
+        # Since the trigger is a binary classification task, we need to squeeze the last dimension
+        # [batch_size, seq_len, 1] -> [batch_size, seq_len] 
+        trigger_logits = trigger_logits.squeeze(-1)
+        print(emotion_logits.shape)
+        print(batch['emotions'].shape)
+        print(trigger_logits.shape)
+        print(batch['triggers'].shape)
+
+        emotion_logits = torch.movedim(emotion_logits, 1, 2)
+
+        emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, batch['emotions'])
+        trigger_loss = torch.nn.BCELoss(ignore_index=-1)(trigger_logits, batch['triggers'])
+        loss = emotion_loss + trigger_loss
+        self.log('val_loss', loss)
         return loss
