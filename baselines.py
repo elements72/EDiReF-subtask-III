@@ -27,7 +27,7 @@ class CLF(pl.LightningModule):
         return x
 
 class BertBaseline(pl.LightningModule):
-    def __init__(self, hidden_size=128, emotion_output_dim=6, lr=1e-3, freeze_bert=False):
+    def __init__(self, hidden_size=128, emotion_output_dim=7, lr=1e-3, freeze_bert=False):
         super().__init__()
         self.model = BertModel.from_pretrained('bert-base-uncased')
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -35,7 +35,7 @@ class BertBaseline(pl.LightningModule):
 
         self.bert_output_dim = self.model.config.hidden_size
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, emotion_output_dim)
-        self.trigger_clf = CLF(self.bert_output_dim, hidden_size, 1)
+        self.trigger_clf = CLF(self.bert_output_dim, hidden_size, 3)
 
         self.save_hyperparameters()
         if freeze_bert:
@@ -69,10 +69,11 @@ class BertBaseline(pl.LightningModule):
         # Since the trigger is a binary classification task, we need to squeeze the last dimension
         # [batch_size, seq_len, 1] -> [batch_size, seq_len] 
         trigger_logits = trigger_logits.squeeze(-1)
+        trigger_logits = torch.movedim(trigger_logits, 1, 2)
         emotion_logits = torch.movedim(emotion_logits, 1, 2)
 
         emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, batch['emotions'])
-        trigger_loss = torch.nn.BCELoss(ignore_index=-1)(trigger_logits, batch['triggers'])
+        trigger_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(trigger_logits, batch['triggers'])
         loss = emotion_loss + trigger_loss
         self.log('train_loss', loss)
         return loss
@@ -83,6 +84,7 @@ class BertBaseline(pl.LightningModule):
         # Since the trigger is a binary classification task, we need to squeeze the last dimension
         # [batch_size, seq_len, 1] -> [batch_size, seq_len] 
         trigger_logits = trigger_logits.squeeze(-1)
+        trigger_logits = torch.movedim(trigger_logits, 1, 2)
         print(emotion_logits.shape)
         print(batch['emotions'].shape)
         print(trigger_logits.shape)
@@ -91,7 +93,7 @@ class BertBaseline(pl.LightningModule):
         emotion_logits = torch.movedim(emotion_logits, 1, 2)
 
         emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, batch['emotions'])
-        trigger_loss = torch.nn.BCELoss(ignore_index=-1)(trigger_logits, batch['triggers'])
+        trigger_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(trigger_logits, batch['triggers'])
         loss = emotion_loss + trigger_loss
         self.log('val_loss', loss)
         return loss
