@@ -3,6 +3,8 @@ import lightning as pl
 from transformers import BertModel, BertTokenizerFast
 from metrics import F1ScoreCumulative, F1ScoreDialogues
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class CLF(pl.LightningModule):
     def __init__(self, input_dim, hidden_dim=128, output_dim=6, lr=1e-3):
         super().__init__()
@@ -40,11 +42,41 @@ class BertBaseline(pl.LightningModule):
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)
         self.trigger_clf = CLF(self.bert_output_dim, hidden_size, 3)
 
-        self.f1_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
-        self.f1_cumulative_triggers = F1ScoreCumulative(num_classes=self.trigger_output_dim)
+        self.f1_train_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
+        self.f1_train_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim)
+        self.f1_train_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
+        self.f1_train_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
 
-        self.f1_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
-        self.f1_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
+        self.f1_val_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
+        self.f1_val_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim)
+        self.f1_val_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
+        self.f1_val_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
+
+        self.f1_test_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
+        self.f1_test_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim)
+        self.f1_test_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
+        self.f1_test_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
+
+        self.f1_cumulative_emotion={
+            'train': self.f1_train_cumulative_emotion,
+            'val': self.f1_val_cumulative_emotion,
+            'test': self.f1_test_cumulative_emotion
+        }
+        self.f1_cumulative_trigger={
+            'train': self.f1_train_cumulative_trigger,
+            'val': self.f1_val_cumulative_trigger,
+            'test': self.f1_test_cumulative_trigger
+        }
+        self.f1_dialogues_emotion={
+            'train': self.f1_train_dialogues_emotion,
+            'val': self.f1_val_dialogues_emotion,
+            'test': self.f1_test_dialogues_emotion
+        }
+        self.f1_dialogues_trigger={
+            'train': self.f1_train_dialogues_trigger,
+            'val': self.f1_val_dialogues_trigger,
+            'test': self.f1_test_dialogues_trigger
+        }
 
         self.save_hyperparameters()
         if freeze_bert:
@@ -70,7 +102,7 @@ class BertBaseline(pl.LightningModule):
         batch_encoded_utterances = torch.nn.utils.rnn.pad_sequence(batch_encoded_utterances, batch_first=True, padding_value=-1)
         emotion_logits = self.emotion_clf(batch_encoded_utterances)
         trigger_logits = self.trigger_clf(batch_encoded_utterances)
-        return emotion_logits, trigger_logits
+        return emotion_logits.to(device), trigger_logits.to(device)
     
     def type_step(self, batch, batch_idx, type):
         emotion_logits, trigger_logits = self(batch)
@@ -81,14 +113,20 @@ class BertBaseline(pl.LightningModule):
         trigger_logits = torch.movedim(trigger_logits, 1, 2)
         emotion_logits = torch.movedim(emotion_logits, 1, 2)
 
-        emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, batch['emotions'])
-        trigger_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(trigger_logits, batch['triggers'])
+        y_hat_class_emotion = emotion_logits #torch.argmax(emotion_logits, dim=2)
+        y_hat_class_trigger = trigger_logits #torch.argmax(trigger_logits, dim=2)
 
-        self.f1_cumulative_emotion.update(emotion_logits, batch['emotions'])
-        self.f1_cumulative_trigger.update(trigger_logits, batch['triggers'])
+        y_emotion = batch['emotions'].to(device)
+        y_trigger = batch['triggers'].to(device)
 
-        self.f1_dialogues_emotion.update(emotion_logits, batch['emotions'])
-        self.f1_dialogues_trigger.update(trigger_logits, batch['triggers'])
+        emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, y_emotion)
+        trigger_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(trigger_logits, y_trigger)
+
+        self.f1_cumulative_emotion[type].update(y_hat_class_emotion, y_emotion)
+        self.f1_cumulative_trigger[type].update(y_hat_class_trigger, y_trigger)
+
+        self.f1_dialogues_emotion[type].update(y_hat_class_emotion, y_emotion)
+        self.f1_dialogues_trigger[type].update(y_hat_class_trigger, y_trigger)
 
         loss = emotion_loss + trigger_loss
         self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
@@ -105,10 +143,10 @@ class BertBaseline(pl.LightningModule):
     
     def on_epoch_type_end(self, type):
         self.log_dict({
-            f'f1_{type}_cumulative_emotion': self.f1_cumulative.compute(),
-            f'f1_{type}_cumulative_trigger': self.f1_cumulative.compute(),
-            f'f1_{type}_dialogues_emotion': self.f1_dialogues.compute(),
-            f'f1_{type}_dialogues_trigger': self.f1_dialogues.compute()
+            f'f1_{type}_cumulative_emotion': self.f1_cumulative_emotion[type].compute(),
+            f'f1_{type}_cumulative_trigger': self.f1_cumulative_trigger[type].compute(),
+            f'f1_{type}_dialogues_emotion': self.f1_dialogues_emotion[type].compute(),
+            f'f1_{type}_dialogues_trigger': self.f1_dialogues_trigger[type].compute()
             }, prog_bar=True, on_epoch=True, on_step=False)
         
     def on_train_epoch_end(self):
