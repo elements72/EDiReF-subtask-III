@@ -2,6 +2,7 @@ import torch
 import lightning as pl
 from transformers import BertModel, BertTokenizerFast
 from metrics import F1ScoreCumulative, F1ScoreDialogues
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -176,3 +177,31 @@ class BertBaseline(pl.LightningModule):
         self.on_epoch_type_end('val')
     def on_test_epoch_end(self):
         self.on_epoch_type_end('test')
+
+
+
+class RandomUniformClassifier(pl.LightningModule):
+    def __init__(self):
+        super().__init__()
+        self._random_state = np.random.RandomState()
+
+    def predict(self, X):
+        batch_size = X.size(0)
+        logits = self._random_state.uniform(size=(batch_size, 4))
+        logits = logits > 0.5
+        return torch.tensor(logits, dtype=torch.float32).to(device)
+
+
+
+class MajorityClassifier(pl.LightningModule):
+    def __init__(self):
+        super().__init__()
+
+    def fit(self, train_dataloader):
+        labels = torch.cat([batch["labels"] for batch in train_dataloader])
+        majority_class = labels.mode()[0].item()
+        self.majority_class = torch.tensor([1 if i == majority_class else 0 for i in range(self.num_classes)])
+
+    def predict(self, x):
+        batch_size = x.size(0)
+        return self.majority_class.repeat(batch_size, 1)
