@@ -7,11 +7,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('Using device:', device)
 
 class F1ScoreCumulative(Metric):
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int, padding_value: int = None):
         super().__init__()
 
         self.num_classes = num_classes
         self.mask = torch.ones([num_classes], dtype=torch.bool)
+        self.padding_value = padding_value if padding_value is not None else num_classes + 1
         #self.mask[[padding_value]] = 0
 
         self.add_state("true_positive", default=torch.zeros([num_classes]), dist_reduce_fx="sum")
@@ -20,7 +21,7 @@ class F1ScoreCumulative(Metric):
 
     def update(self, y_hat_class: torch.Tensor, y_class: torch.Tensor):
 
-        confusion_matrix_metric = ConfusionMatrix(num_classes=self.num_classes, task="multiclass", ignore_index=-1).to(device)
+        confusion_matrix_metric = ConfusionMatrix(num_classes=self.num_classes, task="multiclass", ignore_index=self.padding_value).to(device)
         confusion_matrix = confusion_matrix_metric(y_hat_class, y_class)
 
         # #  Example of multiclass confusion matrix:
@@ -42,11 +43,7 @@ class F1ScoreCumulative(Metric):
         self.false_positive += false_positive
 
     def compute(self):
-        precision = self.true_positive / (self.true_positive + self.false_positive)
-        recall = self.true_positive / (self.true_positive + self.false_negative)
-
-        f1 = 2 * (precision * recall) / (precision + recall)
-
+        f1 = self.compute_category()
         # Create a mask that is False for NaNs
         mask = torch.isnan(f1)
 
@@ -55,19 +52,29 @@ class F1ScoreCumulative(Metric):
 
         # Compute the mean of the non-NaN values
         mean_value = torch.mean(valid_data)
-
         return mean_value
+
+    def compute_category(self):
+        precision = self.true_positive / (self.true_positive + self.false_positive)
+        recall = self.true_positive / (self.true_positive + self.false_negative)
+
+        f1 = 2 * (precision * recall) / (precision + recall)
+
+        return f1
+    
+    
     
 class F1ScoreDialogues(Metric):
     '''
     F1 score per dialogue.
     For each dialogue we compute the F1 score and we avergae over all dialogues.
     '''
-    def __init__(self, num_classes: int, padding_value: int = -1):
+    def __init__(self, num_classes: int, padding_value: int = None):
         super().__init__()
 
         self.num_classes = num_classes
-        self.f1_score = MulticlassF1Score(num_classes=self.num_classes, average='macro', ignore_index=padding_value, multidim_average='samplewise')
+        self.padding_value = padding_value if padding_value else num_classes + 1
+        self.f1_score = MulticlassF1Score(num_classes=self.num_classes, average='macro', ignore_index=self.padding_value, multidim_average='samplewise')
 
         self.add_state("sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("n", default=torch.tensor(0), dist_reduce_fx="sum")

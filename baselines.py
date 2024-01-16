@@ -29,7 +29,8 @@ class CLF(pl.LightningModule):
         return x
 
 class BertBaseline(pl.LightningModule):
-    def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=3, lr=1e-3, freeze_bert=False):
+    def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=3, lr=1e-3,
+                  freeze_bert=True, padding_value_emotion: int = None, padding_value_trigger: int = None):
         super().__init__()
         self.model = BertModel.from_pretrained('bert-base-uncased')
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -38,24 +39,33 @@ class BertBaseline(pl.LightningModule):
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
 
+        ## Utterace1, Utterace1, Utterance3, Padding 1 
+        ## Trigger 1, Trigger 1, Trigger 1, Padding 1
+        ## Emotion 1, Emotion 1, Emotion 1, Padding 1 
+        ##
+
+        # Padding value for the emotion and the trigger output 
+        self.padding_value_emotion = padding_value_emotion if padding_value_emotion else emotion_output_dim
+        self.padding_value_trigger = padding_value_trigger if padding_value_trigger else trigger_output_dim
+
         self.bert_output_dim = self.model.config.hidden_size
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)
-        self.trigger_clf = CLF(self.bert_output_dim, hidden_size, 3)
+        self.trigger_clf = CLF(self.bert_output_dim, hidden_size, self.trigger_output_dim)
 
-        self.f1_train_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
-        self.f1_train_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim)
-        self.f1_train_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
-        self.f1_train_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
+        self.f1_train_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
+        self.f1_train_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_train_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
+        self.f1_train_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
 
-        self.f1_val_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
-        self.f1_val_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim)
-        self.f1_val_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
-        self.f1_val_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
+        self.f1_val_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
+        self.f1_val_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_val_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
+        self.f1_val_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
 
-        self.f1_test_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim)
-        self.f1_test_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim)
-        self.f1_test_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim)
-        self.f1_test_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim)
+        self.f1_test_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
+        self.f1_test_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_test_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
+        self.f1_test_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
 
         self.f1_cumulative_emotion={
             'train': self.f1_train_cumulative_emotion,
@@ -99,7 +109,6 @@ class BertBaseline(pl.LightningModule):
             encoded_utterances = self.encode(utterances)
             batch_encoded_utterances.append(encoded_utterances)
         # Pad with zeros
-        batch_encoded_utterances = torch.nn.utils.rnn.pad_sequence(batch_encoded_utterances, batch_first=True, padding_value=-1)
         emotion_logits = self.emotion_clf(batch_encoded_utterances)
         trigger_logits = self.trigger_clf(batch_encoded_utterances)
         return emotion_logits.to(device), trigger_logits.to(device)
@@ -119,8 +128,8 @@ class BertBaseline(pl.LightningModule):
         y_emotion = batch['emotions'].to(device)
         y_trigger = batch['triggers'].to(device)
 
-        emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(emotion_logits, y_emotion)
-        trigger_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)(trigger_logits, y_trigger)
+        emotion_loss = torch.nn.CrossEntropyLoss(ignore_index=self.padding_value_emotion)(emotion_logits, y_emotion)
+        trigger_loss = torch.nn.CrossEntropyLoss(ignore_index=self.padding_value_trigger)(trigger_logits, y_trigger)
 
         self.f1_cumulative_emotion[type].update(y_hat_class_emotion, y_emotion)
         self.f1_cumulative_trigger[type].update(y_hat_class_trigger, y_trigger)
@@ -148,6 +157,10 @@ class BertBaseline(pl.LightningModule):
             f'f1_{type}_dialogues_emotion': self.f1_dialogues_emotion[type].compute(),
             f'f1_{type}_dialogues_trigger': self.f1_dialogues_trigger[type].compute()
             }, prog_bar=True, on_epoch=True, on_step=False)
+        self.f1_cumulative_emotion[type].reset()
+        self.f1_cumulative_trigger[type].reset()
+        self.f1_dialogues_emotion[type].reset()
+        self.f1_dialogues_trigger[type].reset()
         
     def on_train_epoch_end(self):
         self.on_epoch_type_end('train')
