@@ -32,7 +32,7 @@ class BertBaseline(pl.LightningModule):
     def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=3, lr=1e-3,
                   freeze_bert=True, padding_value_emotion: int = None, padding_value_trigger: int = None):
         super().__init__()
-        self.model = BertModel.from_pretrained('bert-base-uncased')
+        self.backbone = BertModel.from_pretrained('bert-base-uncased')
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         self.lr = lr
         self.freeze_bert = freeze_bert
@@ -49,7 +49,7 @@ class BertBaseline(pl.LightningModule):
         self.padding_value_emotion = padding_value_emotion if padding_value_emotion else emotion_output_dim
         self.padding_value_trigger = padding_value_trigger if padding_value_trigger else trigger_output_dim
 
-        self.bert_output_dim = self.model.config.hidden_size
+        self.bert_output_dim = self.backbone.config.hidden_size
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)
         self.trigger_clf = CLF(self.bert_output_dim, hidden_size, self.trigger_output_dim)
 
@@ -91,7 +91,7 @@ class BertBaseline(pl.LightningModule):
 
         self.save_hyperparameters()
         if freeze_bert:
-            for param in self.model.parameters():
+            for param in self.backbone.parameters():
                 param.requires_grad = False
 
 
@@ -103,7 +103,7 @@ class BertBaseline(pl.LightningModule):
     
     def encode(self, x):
         x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True).to(self.device)
-        x = self.model(**x).last_hidden_state[:, 0, :]
+        x = self.backbone(**x).last_hidden_state[:, 0, :]
         return x
     
     def configure_optimizers(self):
