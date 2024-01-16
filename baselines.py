@@ -35,6 +35,7 @@ class BertBaseline(pl.LightningModule):
         self.model = BertModel.from_pretrained('bert-base-uncased')
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         self.lr = lr
+        self.freeze_bert = freeze_bert
 
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
@@ -92,6 +93,13 @@ class BertBaseline(pl.LightningModule):
         if freeze_bert:
             for param in self.model.parameters():
                 param.requires_grad = False
+
+
+    def on_save_checkpoint(self, checkpoint):
+        if self.freeze_bert:
+            # Remove all the parameters of the backbone from the checkpoint
+            for name, param in self.backbone.named_parameters():
+                del checkpoint['state_dict']['backbone.' + name]
     
     def encode(self, x):
         x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True).to(self.device)
