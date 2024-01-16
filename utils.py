@@ -1,5 +1,5 @@
 from lightning.pytorch import Trainer, seed_everything
-from lightning.pytorch.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 import torch
@@ -10,7 +10,8 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
 
     model = model_class(**hyperparameters)
 
-    logger = TensorBoardLogger(logs_path, name=f"{model_name}_seed{seed}")
+    
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}', save_dir=logs_path)
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=None,
@@ -26,10 +27,10 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
 
     trainer = Trainer(
         max_epochs=epochs,
-        logger=logger,
+        logger=wandb_logger,
         log_every_n_steps=1,
         callbacks=[checkpoint_callback, early_stop_callback],
-        deterministic=True
+        deterministic=False
     )
 
     trainer.fit(model, train_dataloader, val_dataloader)
