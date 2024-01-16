@@ -104,9 +104,10 @@ class BertBaseline(pl.LightningModule):
 
     def forward(self, x):
         batch_utterances = x['utterances']
-        batch_encoded_utterances = self.encode(batch_utterances)
-        print(batch_encoded_utterances.shape)
-  
+        batch_encoded_flattened_utterances = [utterance for utterances in batch_utterances for utterance in utterances]
+        # Reshape the batch of utterances into a list of utterances
+        batch_encoded_utterances = self.encode(batch_encoded_flattened_utterances)
+        batch_encoded_utterances = batch_encoded_utterances.reshape(len(batch_utterances), -1, self.bert_output_dim)
         # Pad with zeros
         emotion_logits = self.emotion_clf(batch_encoded_utterances)
         trigger_logits = self.trigger_clf(batch_encoded_utterances)
