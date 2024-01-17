@@ -30,8 +30,7 @@ class CLF(pl.LightningModule):
         return x
 
 class BertBaseline(pl.LightningModule):
-    def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=3, lr=1e-3,
-                  freeze_bert=True, padding_value_emotion: int = None, padding_value_trigger: int = None):
+    def __init__(self, hidden_size=128, emotion_output_dim=6, trigger_output_dim=2, lr=1e-3, freeze_bert=True):
         super().__init__()
         self.backbone = BertModel.from_pretrained('bert-base-uncased')
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -41,14 +40,9 @@ class BertBaseline(pl.LightningModule):
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
 
-        ## Utterace1, Utterace1, Utterance3, Padding 1 
-        ## Trigger 1, Trigger 1, Trigger 1, Padding 1
-        ## Emotion 1, Emotion 1, Emotion 1, Padding 1 
-        ##
-
         # Padding value for the emotion and the trigger output 
-        self.padding_value_emotion = padding_value_emotion if padding_value_emotion else emotion_output_dim
-        self.padding_value_trigger = padding_value_trigger if padding_value_trigger else trigger_output_dim
+        self.padding_value_emotion = emotion_output_dim
+        self.padding_value_trigger = trigger_output_dim
 
         self.bert_output_dim = self.backbone.config.hidden_size
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)

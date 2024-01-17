@@ -1,18 +1,25 @@
 from torchmetrics import Metric
 from torchmetrics import ConfusionMatrix
-from torchmetrics.classification import MulticlassF1Score
+from torchmetrics.classification import MulticlassF1Score, BinaryF1Score
 import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('Using device:', device)
 
 class F1ScoreCumulative(Metric):
-    def __init__(self, num_classes: int, padding_value: int = None):
+    def __init__(self, num_classes: int, padding_value: int = None, binary: bool = False):
         super().__init__()
 
         self.num_classes = num_classes
         self.mask = torch.ones([num_classes], dtype=torch.bool)
         self.padding_value = padding_value if padding_value is not None else num_classes + 1
+
+        self.binary = binary
+
+        if self.binary:
+            # If the model is binary, we are interested in the F1 score of the positive class
+            self.mask[[0]] = 1
+        
         #self.mask[[padding_value]] = 0
 
         self.add_state("true_positive", default=torch.zeros([num_classes]), dist_reduce_fx="sum")
@@ -45,10 +52,10 @@ class F1ScoreCumulative(Metric):
     def compute(self):
         f1 = self.compute_category()
         # Create a mask that is False for NaNs
-        mask = torch.isnan(f1)
+        mask = torch.isnan(f1) | self.mask
 
         # Invert the mask: True for valid entries, False for NaNs
-        valid_data = f1[~mask]
+        valid_data = f1[~mask]  
 
         # Compute the mean of the non-NaN values
         mean_value = torch.mean(valid_data)
@@ -69,19 +76,23 @@ class F1ScoreDialogues(Metric):
     F1 score per dialogue.
     For each dialogue we compute the F1 score and we avergae over all dialogues.
     '''
-    def __init__(self, num_classes: int, padding_value: int = None):
+    def __init__(self, num_classes: int, padding_value: int = None, binary: bool = False):
         super().__init__()
 
         self.num_classes = num_classes
         self.padding_value = padding_value if padding_value else num_classes + 1
-        self.f1_score = MulticlassF1Score(num_classes=self.num_classes, average='macro', ignore_index=self.padding_value, multidim_average='samplewise')
+        self.binary = binary
+        if binary:
+            self.f1_score = BinaryF1Score(ignore_index=self.padding_value, multidim_average='samplewise')
+        else:
+            self.f1_score = MulticlassF1Score(num_classes=self.num_classes, ignore_index=self.padding_value, multidim_average='samplewise')
 
         self.add_state("sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("n", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, y_hat_class: torch.Tensor, y_class: torch.Tensor):
         f1_score = self.f1_score(y_hat_class, y_class)
-        self.sum += f1_score.sum()
+        self.sum += f1_score.sum()  
         self.n += f1_score.numel()
 
     def compute(self):
