@@ -91,6 +91,9 @@ class F1ScoreDialogues(Metric):
         self.add_state("n", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, y_hat_class: torch.Tensor, y_class: torch.Tensor):
+        if self.binary:
+            # [batch_size, 2, seq_len] -> [batch_size, seq_length]
+            y_hat_class = torch.argmax(y_hat_class, dim=-1)
         f1_score = self.f1_score(y_hat_class, y_class)
         self.sum += f1_score.sum()  
         self.n += f1_score.numel()
