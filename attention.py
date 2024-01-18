@@ -11,7 +11,7 @@ class DialoguesAttention(ClassificationTaskModel):
         attention = torch.nn.MultiheadAttention(encoder.output_dim, num_heads=2, dropout=0.1, batch_first=True)
 
         super().__init__(emotion_output_dim=emotion_output_dim, trigger_output_dim=trigger_output_dim,
-                         clf_input_size=encoder.output_dim, **kwargs)
+                         clf_input_size=encoder.output_dim * 2, **kwargs)
 
         self.encoder = encoder
         self.attention = attention
@@ -20,10 +20,11 @@ class DialoguesAttention(ClassificationTaskModel):
 
     def forward(self, x):
         encoded_utterances = self.encoder.encode(x['utterances'])
-        features, _ = self.attention(encoded_utterances, encoded_utterances, encoded_utterances)
+        attention_out, _ = self.attention(encoded_utterances, encoded_utterances, encoded_utterances)
+        clf_input = torch.cat([encoded_utterances, attention_out], dim=-1)
         # Classification
-        emotion_logits = self.emotion_clf(features)
-        trigger_logits = self.trigger_clf(features)
+        emotion_logits = self.emotion_clf(clf_input)
+        trigger_logits = self.trigger_clf(clf_input)
         return emotion_logits.to(device), trigger_logits.to(device)
 
     def on_save_checkpoint(self, checkpoint):

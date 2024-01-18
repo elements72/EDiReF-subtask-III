@@ -84,8 +84,9 @@ class ClassificationTaskModel(pl.LightningModule):
         self.clf_input_size = clf_input_size
         self.clf_hidden_size = clf_hidden_size
         self.lr = lr
-        self.class_weights_emotion = class_weights_emotion.to(device)
-        self.class_weights_trigger = class_weights_trigger.to(device)
+
+        self.class_weights_emotion = class_weights_emotion.to(device) if class_weights_emotion is not None else None
+        self.class_weights_trigger = class_weights_trigger.to(device) if class_weights_trigger is not None else None
 
         self.f1_cumulative_emotion = {}
         self.f1_cumulative_trigger = {}
