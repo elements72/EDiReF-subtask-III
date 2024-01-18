@@ -49,17 +49,18 @@ class BertEncoder(pl.LightningModule):
                 param.requires_grad = False
 
     def on_save_checkpoint(self, checkpoint):
-        print(checkpoint['state_dict'].keys())
-
         if self.freeze:
             # Remove all the parameters of the backbone from the checkpoint
             for name, param in self.model.named_parameters():
                 del checkpoint['state_dict'][self.encoder_name + ".model." + name]
 
-    def encode(self, x):
-        x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True).to(device)
+    def encode(self, utterances):
+        flattend = [u for sub_list in utterances for u in sub_list]
+        x = self.tokenizer(flattend, return_tensors='pt', padding=True, truncation=True).to(device)
         x = self.model(**x).last_hidden_state[:, 0, :]
-        return x
+
+        # Reshape the batch of utterances into a list of utterances
+        return x.reshape(len(utterances), -1, self.model.config.hidden_size)
 
     @property
     def output_dim(self):

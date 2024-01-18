@@ -16,8 +16,8 @@ class BertBaseline(MetricModel):
         self.encoder = BertEncoder('bert-base-uncased', emotion_output_dim, trigger_output_dim, freeze_bert)
 
         self.lr = lr
-        self.class_weights_emotion = class_weights_emotion
-        self.class_weights_trigger = class_weights_trigger
+        self.class_weights_emotion = class_weights_emotion.to(device)
+        self.class_weights_trigger = class_weights_trigger.to(device)
 
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
@@ -45,14 +45,9 @@ class BertBaseline(MetricModel):
         }
 
     def forward(self, x):
-        batch_utterances = x['utterances']
-        batch_encoded_flattened_utterances = [utterance for utterances in batch_utterances for utterance in utterances]
-        # Reshape the batch of utterances into a list of utterances
-        batch_encoded_utterances = self.encoder.encode(batch_encoded_flattened_utterances)
-        batch_encoded_utterances = batch_encoded_utterances.reshape(len(batch_utterances), -1, self.bert_output_dim)
-        # Pad with zeros
-        emotion_logits = self.emotion_clf(batch_encoded_utterances)
-        trigger_logits = self.trigger_clf(batch_encoded_utterances)
+        encoded_utterances = self.encoder.encode(x['utterances'])
+        emotion_logits = self.emotion_clf(encoded_utterances)
+        trigger_logits = self.trigger_clf(encoded_utterances)
         return emotion_logits.to(device), trigger_logits.to(device)
 
     def type_step(self, batch, batch_idx, type):
