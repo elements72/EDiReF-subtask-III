@@ -67,18 +67,25 @@ class BertEncoder(pl.LightningModule):
         return self.model.config.hidden_size
 
 
-class MetricModel(pl.LightningModule):
+class ClassificationTaskModel(pl.LightningModule):
     """
     Class for the metric. It contains the metrics for the emotion and the trigger tasks.
     """
 
-    def __init__(self, emotion_output_dim=7, trigger_output_dim=2, padding_value_emotion=7, padding_value_trigger=2):
+    def __init__(self, clf_input_size: int, clf_hidden_size: int = 128,
+                 emotion_output_dim=7, trigger_output_dim=2, padding_value_emotion=7, padding_value_trigger=2, lr=1e-3,
+                 class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None):
         super().__init__()
 
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
         self.padding_value_emotion = padding_value_emotion
         self.padding_value_trigger = padding_value_trigger
+        self.clf_input_size = clf_input_size
+        self.clf_hidden_size = clf_hidden_size
+        self.lr = lr
+        self.class_weights_emotion = class_weights_emotion.to(device)
+        self.class_weights_trigger = class_weights_trigger.to(device)
 
         self.f1_cumulative_emotion = {}
         self.f1_cumulative_trigger = {}
@@ -96,10 +103,25 @@ class MetricModel(pl.LightningModule):
                                                                 padding_value=self.padding_value_trigger,
                                                                 binary=True).to(device)
 
-    def metric_update(self, stage: str, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger):
-        self.f1_cumulative_emotion[stage](y_hat_class_emotion, y_emotion)
-        self.f1_cumulative_trigger[stage](y_hat_class_trigger, y_trigger)
+        self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim)
+        self.trigger_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.trigger_output_dim)
 
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=4, verbose=True)
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': scheduler,
+            'monitor': 'val_loss'
+        }
+
+    def metric_update(self, stage: str, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger):
+        self.f1_cumulative_emotion[stage].update(y_hat_class_emotion, y_emotion)
+        self.f1_cumulative_trigger[stage].update(y_hat_class_trigger, y_trigger)
+
+        self.f1_dialogues_emotion[stage].update(y_hat_class_emotion, y_emotion)
+        self.f1_dialogues_trigger[stage].update(y_hat_class_trigger, y_trigger)
+        
     def on_epoch_type_end(self, type):
         self.log_dict({
             f'f1_{type}_cumulative_emotion': self.f1_cumulative_emotion[type].compute(),
@@ -120,3 +142,42 @@ class MetricModel(pl.LightningModule):
 
     def on_test_epoch_end(self):
         self.on_epoch_type_end('test')
+
+    def type_step(self, batch, batch_idx, type):
+        emotion_logits, trigger_logits = self(batch)
+
+        batch_size = emotion_logits.size(0)
+        # Since the trigger is a binary classification task, we need to squeeze the last dimension
+        # [batch_size, seq_len, 1] -> [batch_size, seq_len]
+        trigger_logits = trigger_logits.squeeze(-1)
+        trigger_logits = torch.movedim(trigger_logits, 1, 2)
+        emotion_logits = torch.movedim(emotion_logits, 1, 2)
+
+        y_hat_class_emotion = emotion_logits  # torch.argmax(emotion_logits, dim=2)
+        y_hat_class_trigger = trigger_logits  # torch.argmax(trigger_logits, dim=2)
+
+        y_emotion = batch['emotions'].to(device)
+        y_trigger = batch['triggers'].to(device)
+
+        emotion_loss_obj = torch.nn.CrossEntropyLoss(ignore_index=self.padding_value_emotion,
+                                                     weight=self.class_weights_emotion)
+        trigger_loss_obj = torch.nn.CrossEntropyLoss(ignore_index=self.padding_value_trigger,
+                                                     weight=self.class_weights_trigger)
+
+        emotion_loss = emotion_loss_obj(emotion_logits, y_emotion)
+        trigger_loss = trigger_loss_obj(trigger_logits, y_trigger)
+
+        self.metric_update(type, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger)
+
+        loss = emotion_loss + trigger_loss
+        self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        return self.type_step(batch, batch_idx, 'train')
+
+    def validation_step(self, batch, batch_idx):
+        return self.type_step(batch, batch_idx, 'val')
+
+    def test_step(self, batch, batch_idx):
+        return self.type_step(batch, batch_idx, 'test')
