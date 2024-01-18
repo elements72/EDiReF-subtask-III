@@ -36,13 +36,13 @@ class BertBaseline(pl.LightningModule):
         self.f1_dialogues_trigger = {}
         for stage in ['train', 'val', 'test']:
             self.f1_cumulative_emotion[stage] = F1ScoreCumulative(num_classes=self.emotion_output_dim,
-                                                                  padding_value=self.padding_value_emotion)
+                                                                  padding_value=self.padding_value_emotion).to(device)
             self.f1_cumulative_trigger[stage] = F1ScoreCumulative(num_classes=self.trigger_output_dim,
-                                                                  padding_value=self.padding_value_trigger, binary=True)
+                                                                  padding_value=self.padding_value_trigger, binary=True).to(device)
             self.f1_dialogues_emotion[stage] = F1ScoreDialogues(num_classes=self.emotion_output_dim,
-                                                                padding_value=self.padding_value_emotion)
+                                                                padding_value=self.padding_value_emotion).to(device)
             self.f1_dialogues_trigger[stage] = F1ScoreDialogues(num_classes=self.trigger_output_dim,
-                                                                padding_value=self.padding_value_trigger, binary=True)
+                                                                padding_value=self.padding_value_trigger, binary=True).to(device)
 
         self.save_hyperparameters()
 
