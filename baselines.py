@@ -33,10 +33,11 @@ class BertBaseline(pl.LightningModule):
     def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=2, lr=1e-3, freeze_bert=True):
         super().__init__()
         self.backbone = BertModel.from_pretrained('bert-base-uncased')
-        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', batched=True)
         self.lr = lr
         self.freeze_bert = freeze_bert
-
+        # Check fast tokenizer
+        print(self.tokenizer.is_fast)
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
 
@@ -119,6 +120,7 @@ class BertBaseline(pl.LightningModule):
     def type_step(self, batch, batch_idx, type):
         emotion_logits, trigger_logits = self(batch)
 
+        batch_size = emotion_logits.size(0)
         # Since the trigger is a binary classification task, we need to squeeze the last dimension
         # [batch_size, seq_len, 1] -> [batch_size, seq_len] 
         trigger_logits = trigger_logits.squeeze(-1)
@@ -141,7 +143,7 @@ class BertBaseline(pl.LightningModule):
         self.f1_dialogues_trigger[type].update(y_hat_class_trigger, y_trigger)
 
         loss = emotion_loss + trigger_loss
-        self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
+        self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
         return loss
     
     def training_step(self, batch, batch_idx):
