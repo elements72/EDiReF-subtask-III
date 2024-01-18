@@ -1,5 +1,3 @@
-import lightning as pl
-import numpy as np
 import torch
 
 from common_models import CLF, BertEncoder, MetricModel
@@ -7,11 +5,24 @@ from common_models import CLF, BertEncoder, MetricModel
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class BertBaseline(MetricModel):
-    def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=2, lr=1e-3, freeze_bert=True,
-                 class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None):
+class LSTMResModel(MetricModel):
+    """
+                    residual connection ->
+        encoder ->                          concat -> classifier
+                    lstm                ->
+    """
+
+    def __init__(
+            self,
+            lstm_kwargs: dict,
+            hidden_size=128,
+            emotion_output_dim=7, trigger_output_dim=2,
+            lr=1e-3, freeze_bert=True,
+            class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None
+
+    ):
         super().__init__(emotion_output_dim=emotion_output_dim, trigger_output_dim=trigger_output_dim,
-                         padding_value_emotion=emotion_output_dim, padding_value_trigger=trigger_output_dim,)
+                         padding_value_emotion=emotion_output_dim, padding_value_trigger=trigger_output_dim, )
 
         self.encoder = BertEncoder('bert-base-uncased', emotion_output_dim, trigger_output_dim, freeze_bert)
 
@@ -22,13 +33,22 @@ class BertBaseline(MetricModel):
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
 
-        # Padding value for the emotion and the trigger output 
+        print(f"Encoder output dim: {self.encoder.output_dim}")
+
+        print(f"lstm_kwargs: {lstm_kwargs}")
+
+        self.lstm = torch.nn.LSTM(input_size=self.encoder.output_dim, **lstm_kwargs)
+
+        # Padding value for the emotion and the trigger output
         self.padding_value_emotion = emotion_output_dim
         self.padding_value_trigger = trigger_output_dim
 
-        self.bert_output_dim = self.encoder.output_dim
-        self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)
-        self.trigger_clf = CLF(self.bert_output_dim, hidden_size, self.trigger_output_dim)
+        clf_input_dim = self.encoder.output_dim + self.lstm.hidden_size
+
+        print(f"clf_input_dim: {clf_input_dim}")
+
+        self.emotion_clf = CLF(clf_input_dim, hidden_size, self.emotion_output_dim)
+        self.trigger_clf = CLF(clf_input_dim, hidden_size, self.trigger_output_dim)
 
         self.save_hyperparameters()
 
@@ -46,8 +66,24 @@ class BertBaseline(MetricModel):
 
     def forward(self, x):
         encoded_utterances = self.encoder.encode(x['utterances'])
-        emotion_logits = self.emotion_clf(encoded_utterances)
-        trigger_logits = self.trigger_clf(encoded_utterances)
+
+        # Run it through the LSTM
+        lstm_out, _ = self.lstm(encoded_utterances)
+        lstm_out = lstm_out[:, -1, :]
+
+        # lstm_out shape is [batch_size, hidden_size]
+        # encoded_utterances shape is [batch_size, seq_len, bert_output_dim]
+        # i need to concat the two tensors along the seq_len dimension
+        # so that the final shape is [batch_size, seq_len, bert_output_dim + hidden_size]
+
+        seq_len = encoded_utterances.shape[1]
+        lstm_out = lstm_out.unsqueeze(1).repeat(1, seq_len, 1)
+
+        clf_input = torch.cat([encoded_utterances, lstm_out], dim=-1)
+
+        # Run it through the classifier
+        emotion_logits = self.emotion_clf(clf_input)
+        trigger_logits = self.trigger_clf(clf_input)
         return emotion_logits.to(device), trigger_logits.to(device)
 
     def type_step(self, batch, batch_idx, type):
@@ -55,7 +91,7 @@ class BertBaseline(MetricModel):
 
         batch_size = emotion_logits.size(0)
         # Since the trigger is a binary classification task, we need to squeeze the last dimension
-        # [batch_size, seq_len, 1] -> [batch_size, seq_len] 
+        # [batch_size, seq_len, 1] -> [batch_size, seq_len]
         trigger_logits = trigger_logits.squeeze(-1)
         trigger_logits = torch.movedim(trigger_logits, 1, 2)
         emotion_logits = torch.movedim(emotion_logits, 1, 2)
@@ -88,29 +124,3 @@ class BertBaseline(MetricModel):
 
     def test_step(self, batch, batch_idx):
         return self.type_step(batch, batch_idx, 'test')
-
-
-class RandomUniformClassifier(pl.LightningModule):
-    def __init__(self):
-        super().__init__()
-        self._random_state = np.random.RandomState()
-
-    def predict(self, X):
-        batch_size = X.size(0)
-        logits = self._random_state.uniform(size=(batch_size, 4))
-        logits = logits > 0.5
-        return torch.tensor(logits, dtype=torch.float32).to(device)
-
-
-class MajorityClassifier(pl.LightningModule):
-    def __init__(self):
-        super().__init__()
-
-    def fit(self, train_dataloader):
-        labels = torch.cat([batch["labels"] for batch in train_dataloader])
-        majority_class = labels.mode()[0].item()
-        self.majority_class = torch.tensor([1 if i == majority_class else 0 for i in range(self.num_classes)])
-
-    def predict(self, x):
-        batch_size = x.size(0)
-        return self.majority_class.repeat(batch_size, 1)
