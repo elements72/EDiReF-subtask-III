@@ -56,53 +56,19 @@ class BertBaseline(pl.LightningModule):
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)
         self.trigger_clf = CLF(self.bert_output_dim, hidden_size, self.trigger_output_dim)
 
-        self.f1_train_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim,
-                                                             padding_value=self.padding_value_emotion)
-        self.f1_train_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim,
-                                                             padding_value=self.padding_value_trigger, binary=True)
-        self.f1_train_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim,
-                                                           padding_value=self.padding_value_emotion)
-        self.f1_train_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim,
-                                                           padding_value=self.padding_value_trigger, binary=True)
-
-        self.f1_val_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim,
-                                                           padding_value=self.padding_value_emotion)
-        self.f1_val_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim,
-                                                           padding_value=self.padding_value_trigger, binary=True)
-        self.f1_val_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim,
-                                                         padding_value=self.padding_value_emotion)
-        self.f1_val_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim,
-                                                         padding_value=self.padding_value_trigger, binary=True)
-
-        self.f1_test_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim,
-                                                            padding_value=self.padding_value_emotion)
-        self.f1_test_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim,
-                                                            padding_value=self.padding_value_trigger, binary=True)
-        self.f1_test_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim,
-                                                          padding_value=self.padding_value_emotion)
-        self.f1_test_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim,
-                                                          padding_value=self.padding_value_trigger, binary=True)
-
-        self.f1_cumulative_emotion = {
-            'train': self.f1_train_cumulative_emotion,
-            'val': self.f1_val_cumulative_emotion,
-            'test': self.f1_test_cumulative_emotion
-        }
-        self.f1_cumulative_trigger = {
-            'train': self.f1_train_cumulative_trigger,
-            'val': self.f1_val_cumulative_trigger,
-            'test': self.f1_test_cumulative_trigger
-        }
-        self.f1_dialogues_emotion = {
-            'train': self.f1_train_dialogues_emotion,
-            'val': self.f1_val_dialogues_emotion,
-            'test': self.f1_test_dialogues_emotion
-        }
-        self.f1_dialogues_trigger = {
-            'train': self.f1_train_dialogues_trigger,
-            'val': self.f1_val_dialogues_trigger,
-            'test': self.f1_test_dialogues_trigger
-        }
+        self.f1_cumulative_emotion = {}
+        self.f1_cumulative_trigger = {}
+        self.f1_dialogues_emotion = {}
+        self.f1_dialogues_trigger = {}
+        for stage in ['train', 'val', 'test']:
+            self.f1_cumulative_emotion[stage] = F1ScoreCumulative(num_classes=self.emotion_output_dim,
+                                                                  padding_value=self.padding_value_emotion)
+            self.f1_cumulative_trigger[stage] = F1ScoreCumulative(num_classes=self.trigger_output_dim,
+                                                                  padding_value=self.padding_value_trigger, binary=True)
+            self.f1_dialogues_emotion[stage] = F1ScoreDialogues(num_classes=self.emotion_output_dim,
+                                                                padding_value=self.padding_value_emotion)
+            self.f1_dialogues_trigger[stage] = F1ScoreDialogues(num_classes=self.trigger_output_dim,
+                                                                padding_value=self.padding_value_trigger, binary=True)
 
         self.save_hyperparameters()
         if freeze_bert:
