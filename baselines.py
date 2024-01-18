@@ -2,16 +2,16 @@ import lightning as pl
 import numpy as np
 import torch
 
-from common_models import CLF, BertEncoder
-from metrics import F1ScoreCumulative, F1ScoreDialogues
+from common_models import CLF, BertEncoder, MetricModel
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class BertBaseline(pl.LightningModule):
+class BertBaseline(MetricModel):
     def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=2, lr=1e-3, freeze_bert=True,
                  class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None):
-        super().__init__()
+        super().__init__(emotion_output_dim=emotion_output_dim, trigger_output_dim=trigger_output_dim,
+                         padding_value_emotion=emotion_output_dim, padding_value_trigger=trigger_output_dim,)
 
         self.encoder = BertEncoder('bert-base-uncased', emotion_output_dim, trigger_output_dim, freeze_bert)
 
@@ -29,20 +29,6 @@ class BertBaseline(pl.LightningModule):
         self.bert_output_dim = self.encoder.output_dim
         self.emotion_clf = CLF(self.bert_output_dim, hidden_size, self.emotion_output_dim)
         self.trigger_clf = CLF(self.bert_output_dim, hidden_size, self.trigger_output_dim)
-
-        self.f1_cumulative_emotion = {}
-        self.f1_cumulative_trigger = {}
-        self.f1_dialogues_emotion = {}
-        self.f1_dialogues_trigger = {}
-        for stage in ['train', 'val', 'test']:
-            self.f1_cumulative_emotion[stage] = F1ScoreCumulative(num_classes=self.emotion_output_dim,
-                                                                  padding_value=self.padding_value_emotion).to(device)
-            self.f1_cumulative_trigger[stage] = F1ScoreCumulative(num_classes=self.trigger_output_dim,
-                                                                  padding_value=self.padding_value_trigger, binary=True).to(device)
-            self.f1_dialogues_emotion[stage] = F1ScoreDialogues(num_classes=self.emotion_output_dim,
-                                                                padding_value=self.padding_value_emotion).to(device)
-            self.f1_dialogues_trigger[stage] = F1ScoreDialogues(num_classes=self.trigger_output_dim,
-                                                                padding_value=self.padding_value_trigger, binary=True).to(device)
 
         self.save_hyperparameters()
 
@@ -88,11 +74,7 @@ class BertBaseline(pl.LightningModule):
         emotion_loss = emotion_loss_obj(emotion_logits, y_emotion)
         trigger_loss = trigger_loss_obj(trigger_logits, y_trigger)
 
-        self.f1_cumulative_emotion[type].update(y_hat_class_emotion, y_emotion)
-        self.f1_cumulative_trigger[type].update(y_hat_class_trigger, y_trigger)
-
-        self.f1_dialogues_emotion[type].update(y_hat_class_emotion, y_emotion)
-        self.f1_dialogues_trigger[type].update(y_hat_class_trigger, y_trigger)
+        self.metric_update(type, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger)
 
         loss = emotion_loss + trigger_loss
         self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
@@ -106,27 +88,6 @@ class BertBaseline(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         return self.type_step(batch, batch_idx, 'test')
-
-    def on_epoch_type_end(self, type):
-        self.log_dict({
-            f'f1_{type}_cumulative_emotion': self.f1_cumulative_emotion[type].compute(),
-            f'f1_{type}_cumulative_trigger': self.f1_cumulative_trigger[type].compute(),
-            f'f1_{type}_dialogues_emotion': self.f1_dialogues_emotion[type].compute(),
-            f'f1_{type}_dialogues_trigger': self.f1_dialogues_trigger[type].compute()
-        }, prog_bar=True, on_epoch=True, on_step=False)
-        self.f1_cumulative_emotion[type].reset()
-        self.f1_cumulative_trigger[type].reset()
-        self.f1_dialogues_emotion[type].reset()
-        self.f1_dialogues_trigger[type].reset()
-
-    def on_train_epoch_end(self):
-        self.on_epoch_type_end('train')
-
-    def on_validation_epoch_end(self):
-        self.on_epoch_type_end('val')
-
-    def on_test_epoch_end(self):
-        self.on_epoch_type_end('test')
 
 
 class RandomUniformClassifier(pl.LightningModule):
