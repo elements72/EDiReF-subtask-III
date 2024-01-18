@@ -52,10 +52,12 @@ class F1ScoreCumulative(Metric):
     def compute(self):
         f1 = self.compute_category()
         # Create a mask that is False for NaNs
-        mask = torch.isnan(f1) | self.mask
+        mask = self.mask
+        nan_mask = torch.isnan(f1)
 
         # Invert the mask: True for valid entries, False for NaNs
-        valid_data = f1[~mask]  
+        f1[nan_mask] = 0.0
+        valid_data = f1[~mask]
 
         # Compute the mean of the non-NaN values
         mean_value = torch.mean(valid_data)
