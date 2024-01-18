@@ -12,7 +12,7 @@ class F1ScoreCumulative(Metric):
 
         self.num_classes = num_classes
         self.mask = torch.ones([num_classes], dtype=torch.bool).to(device)
-        self.padding_value = padding_value if padding_value is not None else num_classes + 1
+        self.padding_value = padding_value if padding_value is not None else num_classes
 
         self.binary = binary
 
@@ -80,7 +80,7 @@ class F1ScoreDialogues(Metric):
         super().__init__()
 
         self.num_classes = num_classes
-        self.padding_value = padding_value if padding_value else num_classes + 1
+        self.padding_value = padding_value if padding_value else num_classes
         self.binary = binary
         if binary:
             self.f1_score = BinaryF1Score(ignore_index=self.padding_value, multidim_average='samplewise')

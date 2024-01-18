@@ -7,7 +7,7 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class CLF(pl.LightningModule):
-    def __init__(self, input_dim, hidden_dim=128, output_dim=6, lr=1e-3):
+    def __init__(self, input_dim, hidden_dim=128, output_dim=7, lr=1e-3):
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -30,7 +30,7 @@ class CLF(pl.LightningModule):
         return x
 
 class BertBaseline(pl.LightningModule):
-    def __init__(self, hidden_size=128, emotion_output_dim=6, trigger_output_dim=2, lr=1e-3, freeze_bert=True):
+    def __init__(self, hidden_size=128, emotion_output_dim=7, trigger_output_dim=2, lr=1e-3, freeze_bert=True):
         super().__init__()
         self.backbone = BertModel.from_pretrained('bert-base-uncased')
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
