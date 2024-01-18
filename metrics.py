@@ -59,6 +59,8 @@ class F1ScoreCumulative(Metric):
 
         # Compute the mean of the non-NaN values
         mean_value = torch.mean(valid_data)
+        if torch.isnan(mean_value):
+            mean_value = torch.tensor(0.0)
         return mean_value
 
     def compute_category(self):
