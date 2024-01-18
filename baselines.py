@@ -50,19 +50,19 @@ class BertBaseline(pl.LightningModule):
         self.trigger_clf = CLF(self.bert_output_dim, hidden_size, self.trigger_output_dim)
 
         self.f1_train_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
-        self.f1_train_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_train_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger, binary=True)
         self.f1_train_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
-        self.f1_train_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_train_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger, binary=True)
 
         self.f1_val_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
-        self.f1_val_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_val_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger, binary=True)
         self.f1_val_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
-        self.f1_val_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_val_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger, binary=True)
 
         self.f1_test_cumulative_emotion = F1ScoreCumulative(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
-        self.f1_test_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_test_cumulative_trigger = F1ScoreCumulative(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger, binary=True)
         self.f1_test_dialogues_emotion = F1ScoreDialogues(num_classes=self.emotion_output_dim, padding_value=self.padding_value_emotion)
-        self.f1_test_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger)
+        self.f1_test_dialogues_trigger = F1ScoreDialogues(num_classes=self.trigger_output_dim, padding_value=self.padding_value_trigger, binary=True)
 
         self.f1_cumulative_emotion={
             'train': self.f1_train_cumulative_emotion,
@@ -98,7 +98,7 @@ class BertBaseline(pl.LightningModule):
                 del checkpoint['state_dict']['backbone.' + name]
     
     def encode(self, x):
-        x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True).to(self.device)
+        x = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True).to(device)
         x = self.backbone(**x).last_hidden_state[:, 0, :]
         return x
     
