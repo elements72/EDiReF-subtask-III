@@ -12,8 +12,8 @@ class LSTMResModel(ClassificationTaskModel):
                     lstm                ->
     """
 
-    def __init__(self, lstm_kwargs: dict, emotion_output_dim=7, trigger_output_dim=2, freeze_bert=True, **kwargs):
-        encoder = BertEncoder('bert-base-uncased', emotion_output_dim, trigger_output_dim, freeze_bert)
+    def __init__(self, lstm_kwargs: dict, emotion_output_dim=7, trigger_output_dim=2, freeze_bert=True, bert_model_name='bert-base-uncased', **kwargs):
+        encoder = BertEncoder(bert_model_name, emotion_output_dim, trigger_output_dim, freeze_bert)
         lstm = torch.nn.LSTM(input_size=encoder.output_dim, **lstm_kwargs)
         clf_input_dim = encoder.output_dim + lstm.hidden_size
 

@@ -82,7 +82,8 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
     print("#############################")
 
     # append in dict
-    optim_lr_rate[model_name] = model.hparams.lr
+    optim_lr_rate[model_name] = {}
+    optim_lr_rate[model_name]['lr'] = model.hparams.lr
     fig = lr_finder.plot(suggest=True)
 
     # append in model_dict
