@@ -129,7 +129,7 @@ class ClassificationTaskModel(pl.LightningModule):
 
         self.f1_dialogues_emotion[stage].update(y_hat_class_emotion, y_emotion)
         self.f1_dialogues_trigger[stage].update(y_hat_class_trigger, y_trigger)
-        
+
     def on_epoch_type_end(self, type):
         self.log_dict({
             f'f1_{type}_cumulative_emotion': self.f1_cumulative_emotion[type].compute(),
@@ -178,6 +178,9 @@ class ClassificationTaskModel(pl.LightningModule):
         self.metric_update(type, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger)
 
         loss = emotion_loss + trigger_loss
+
+        self.log(f'{type}_trigger_loss', trigger_loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
+        self.log(f'{type}_emotion_loss', emotion_loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
         self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
         return loss
 
