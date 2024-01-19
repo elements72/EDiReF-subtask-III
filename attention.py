@@ -6,8 +6,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class DialoguesAttention(ClassificationTaskModel):
-    def __init__(self, emotion_output_dim=7, trigger_output_dim=2, freeze_bert=True, bert_model_name='bert-base-uncased', **kwargs):
-        encoder = BertEncoder(bert_model_name, emotion_output_dim, trigger_output_dim, freeze_bert)
+    def __init__(self, emotion_output_dim=7, trigger_output_dim=2, freeze_bert=True,
+                 bert_model_name='bert-base-uncased', use_encoder_cache: bool = True,
+                 encoder_cache_size: int = 10_000, **kwargs):
+        encoder = BertEncoder(bert_model_name, emotion_output_dim, trigger_output_dim, freeze_bert,
+                              cache_output=use_encoder_cache, cache_size=encoder_cache_size)
         attention = torch.nn.MultiheadAttention(encoder.output_dim, num_heads=2, dropout=0.1, batch_first=True)
 
         super().__init__(emotion_output_dim=emotion_output_dim, trigger_output_dim=trigger_output_dim,
