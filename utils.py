@@ -10,6 +10,9 @@ from pytorch_lightning.loggers import WandbLogger
 
 from typing import Generic, TypeVar
 
+def test_model(model, test_dataloader):
+    trainer = pl.Trainer()
+    trainer.test(model, test_dataloader)
 
 def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=42, epochs=20, logs_path='logs',
                 hyperparameters=None) -> pl.LightningModule:

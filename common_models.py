@@ -21,14 +21,14 @@ class CLF(pl.LightningModule):
         self.fc2 = torch.nn.Linear(hidden_dim, output_dim)
         self.relu = torch.nn.ReLU()
         self.dropout = torch.nn.Dropout(0.2)
-        self.sigmoid = torch.nn.Sigmoid()
+        #self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.dropout(x)
         x = self.fc2(x)
-        x = self.sigmoid(x)
+        #x = self.sigmoid(x)
         return x
 
 
