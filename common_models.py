@@ -92,7 +92,9 @@ class BertEncoder(pl.LightningModule):
         # We also keep the values of the utterances that are in the cache, so that we can use them later
         in_cache_values = []
 
-        for i, sentence in enumerate(non_padding_utterances):
+        for i, sentence in enumerate(flattened_utterances):
+            if sentence == "":
+                continue
             cached: torch.Tensor = self.cache.get(sentence)
             if cached is not None:
                 in_cache_indexes.append(i)

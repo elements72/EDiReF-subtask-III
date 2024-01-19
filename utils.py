@@ -22,7 +22,10 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
         print("Loading hyperparameters from file...")
         with open('hyperparams.json', 'r') as f:
             file = json.load(f)
-            hyperparameters["lr"] = file["lr"]
+            try:
+                hyperparameters[model_name]["lr"] = file[model_name]["lr"]
+            except KeyError:
+                print(f"Hyperparameters for model {model_name} not found. Using default values.")
     else:
         print("No hyperparameters file found. Using default values.")
 

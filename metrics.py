@@ -96,7 +96,8 @@ class F1ScoreDialogues(Metric):
 
     def update(self, y_hat_class: torch.Tensor, y_class: torch.Tensor):
         if self.binary:
-            # [batch_size, 2, seq_len] -> [batch_size, seq_length]
+            # Apply softmax to get the probability of the positive class
+           # y_hat_class = torch.nn.functional.softmax(y_hat_class, dim=1)
             y_hat_class = torch.argmax(y_hat_class, dim=1)
         f1_score = self.f1_score(y_hat_class, y_class)
         self.sum += f1_score.sum()  
