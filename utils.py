@@ -1,11 +1,14 @@
 import json
 import os
+from collections import OrderedDict
 
 import lightning as pl
 from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
+
+from typing import Generic, TypeVar
 
 
 def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=42, epochs=20, logs_path='logs',
@@ -92,3 +95,55 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
     print(model_lr_rate)
     with open('hyperparams.json', 'w') as f:
         json.dump(model_lr_rate, f)
+
+
+
+K = TypeVar('K')
+V = TypeVar('V')
+class FIFOCache(Generic[K, V]):
+    """
+    A FIFO cache that stores the last n elements.
+    The keys are of type K and the values are of type V.
+    """
+
+    def __init__(self, size: int):
+        self.size = size
+        self.cache = OrderedDict()
+
+    def contains(self, key: K) -> bool:
+        """
+        Checks if the cache contains the given key.
+        """
+
+        return key in self.cache
+
+    def get(self, key: K) -> V:
+        """
+        Returns the value associated with the given key.
+        If the key is not in the cache, None is returned.
+        """
+
+        return self.cache.get(key, None)
+
+    def put(self, key: K, value: V) -> None:
+        """
+        Inserts the given key-value pair into the cache.
+        If the key is already in the cache, its value is updated.
+        If the cache is full, the oldest key-value pair is removed.
+        """
+
+        if key in self.cache:
+            self.cache.move_to_end(key)
+
+        self.cache[key] = value
+
+        if len(self.cache) > self.size:
+            self.cache.popitem(last=False)
+
+    def __repr__(self) -> str:
+        s = "Cache:(\n"
+        for key, value in self.cache.items():
+            s += f"\t'{key}': {value.shape}\n"
+
+        s += ")"
+        return s

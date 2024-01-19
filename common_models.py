@@ -3,6 +3,7 @@ import torch
 from transformers import BertModel, BertTokenizerFast
 
 from metrics import F1ScoreCumulative, F1ScoreDialogues
+from utils import FIFOCache
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -33,7 +34,8 @@ class CLF(pl.LightningModule):
 
 class BertEncoder(pl.LightningModule):
     def __init__(self, bert_model_name: str, emotion_output_dim: int = 7, trigger_output_dim: int = 2,
-                 freeze_bert: bool = True, encoder_name: str = "encoder"):
+                 freeze_bert: bool = True, encoder_name: str = "encoder", cache_output: bool = False,
+                 cache_size: int = 100_000):
         super().__init__()
         self.model = BertModel.from_pretrained(bert_model_name)
         self.tokenizer = BertTokenizerFast.from_pretrained(bert_model_name, batched=True)
@@ -43,6 +45,16 @@ class BertEncoder(pl.LightningModule):
 
         self.freeze = freeze_bert
         self.encoder_name = encoder_name
+
+        self.cache_output = cache_output
+        self.cache_size = cache_size
+
+        if not self.freeze and self.cache_output:
+            raise ValueError("Cannot cache the output if the encoder is not frozen")
+
+        if self.cache_output:
+            self.cache: FIFOCache[str, torch.Tensor] = FIFOCache(self.cache_size)
+            print(f"Using cache of size {self.cache_size} for the embedding")
 
         if self.freeze:
             for param in self.model.parameters():
@@ -61,13 +73,95 @@ class BertEncoder(pl.LightningModule):
         else:
             super().on_load_checkpoint(checkpoint)
 
-    def encode(self, utterances):
-        flattend = [u for sub_list in utterances for u in sub_list]
-        x = self.tokenizer(flattend, return_tensors='pt', padding=True, truncation=True).to(device)
-        x = self.model(**x).last_hidden_state[:, 0, :]
+    def _encode_with_cache(self, flattened_utterances: list[str]) -> torch.Tensor:
+        """
+        Encode the utterances using, if possible, the cache.
+        If the utterance is not in the cache, it is encoded and added to the cache.
+        For the padding a constant embedding of 0 is used.
+        """
+
+        # We take the indices of all the not None utterances, so that we avoid computing the
+        # embeddings of the None utterances (that are padding)
+        non_padding_utterances = [x for x in flattened_utterances if x != ""]
+
+        # From the non padding utterances we keep two indices one for the utterances that are in
+        # the cache and one for the utterances that are not in the cache and are to be encoded
+        in_cache_indexes = []
+        to_encoding_indexes = []
+
+        # We also keep the values of the utterances that are in the cache, so that we can use them later
+        in_cache_values = []
+
+        for i, sentence in enumerate(non_padding_utterances):
+            cached: torch.Tensor = self.cache.get(sentence)
+            if cached is not None:
+                in_cache_indexes.append(i)
+                in_cache_values.append(cached)
+            else:
+                to_encoding_indexes.append(i)
+
+        # The utterances that are to be encoded are the ones that are not in the cache
+        to_encoding_utterances = [non_padding_utterances[i] for i in to_encoding_indexes]
+
+        if len(in_cache_indexes) == 0:
+            # If no utterances is in the cache, we encode all the utterances,
+            # we keep track of both encoder_out and out (that are the same in this case)
+            # so that we can later update the cache
+            encoder_out = self._encode_no_cache(flattened_utterances)
+            out = encoder_out
+        else:
+            # If there are utterances in the cache, we encode only the utterances that are not in the cache
+
+            in_cache_values = torch.stack(in_cache_values)
+            out = torch.zeros((len(flattened_utterances), self.model.config.hidden_size)).to(device)
+
+            if len(to_encoding_indexes) != 0:
+                # If no utterances need to be encoded, we skip this step
+                tokenized = self.tokenizer(to_encoding_utterances, return_tensors='pt', padding=True,
+                                           truncation=True).to(device)
+                encoder_out = self.model(**tokenized).last_hidden_state[:, 0, :]
+                out[to_encoding_indexes] = encoder_out
+
+            out[in_cache_indexes] = in_cache_values
+
+        # For all the utterances that were to be encoded, we update the cache
+        for i, sentences in enumerate(to_encoding_utterances):
+            sentence_encoding = encoder_out[i]
+            self.cache.put(sentences, sentence_encoding)
+
+        return out
+
+    def _encode_no_cache(self, flattened_utterances: list[str]) -> torch.Tensor:
+        """
+        Encode the utterances without using the cache. For the padding a constant embedding of 0 is used, so
+        the bert model is not called for the padding.
+        """
+
+        # We take the indices of all the padding utterances, so that we avoid computing the
+        # embeddings of them
+        non_padding_utterances = [x for x in flattened_utterances if x != ""]
+        non_padding_indexes = [i for i, x in enumerate(flattened_utterances) if x != ""]
+
+        # We tokenize the non padding utterances
+        tokenized = self.tokenizer(non_padding_utterances, return_tensors='pt', padding=True, truncation=True).to(
+            device)
+        out = torch.zeros((len(flattened_utterances), self.model.config.hidden_size)).to(device)
+
+        # Add to the zero tensor the embeddings of the non padding utterances
+        out[non_padding_indexes] = self.model(**tokenized).last_hidden_state[:, 0, :]
+        return out
+
+    def encode(self, utterances) -> torch.Tensor:
+        flattened_utterances = [u for sub_list in utterances for u in sub_list]
+
+        if self.cache_output:
+            out = self._encode_with_cache(flattened_utterances)
+        else:
+            out = self._encode_no_cache(flattened_utterances)
 
         # Reshape the batch of utterances into a list of utterances
-        return x.reshape(len(utterances), -1, self.model.config.hidden_size)
+        out = out.reshape(len(utterances), -1, self.model.config.hidden_size)
+        return out
 
     @property
     def output_dim(self):
@@ -179,8 +273,10 @@ class ClassificationTaskModel(pl.LightningModule):
 
         loss = emotion_loss + trigger_loss
 
-        self.log(f'{type}_trigger_loss', trigger_loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
-        self.log(f'{type}_emotion_loss', emotion_loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
+        self.log(f'{type}_trigger_loss', trigger_loss, prog_bar=True, on_epoch=True, on_step=False,
+                 batch_size=batch_size)
+        self.log(f'{type}_emotion_loss', emotion_loss, prog_bar=True, on_epoch=True, on_step=False,
+                 batch_size=batch_size)
         self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
         return loss
 
