@@ -103,7 +103,7 @@ class BertEncoder(pl.LightningModule):
                 to_encoding_indexes.append(i)
 
         # The utterances that are to be encoded are the ones that are not in the cache
-        to_encoding_utterances = [non_padding_utterances[i] for i in to_encoding_indexes]
+        to_encoding_utterances = [flattened_utterances[i] for i in to_encoding_indexes]
 
         if len(in_cache_indexes) == 0:
             # If no utterances is in the cache, we encode all the utterances,
