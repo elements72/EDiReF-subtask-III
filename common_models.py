@@ -54,6 +54,13 @@ class BertEncoder(pl.LightningModule):
             for name, param in self.model.named_parameters():
                 del checkpoint['state_dict'][self.encoder_name + ".model." + name]
 
+    def on_load_checkpoint(self, checkpoint):
+        if self.freeze:
+            for name, param in self.model.named_parameters():
+                checkpoint['state_dict'][self.encoder_name + ".model." + name] = param
+        else:
+            super().on_load_checkpoint(checkpoint)
+
     def encode(self, utterances):
         flattend = [u for sub_list in utterances for u in sub_list]
         x = self.tokenizer(flattend, return_tensors='pt', padding=True, truncation=True).to(device)

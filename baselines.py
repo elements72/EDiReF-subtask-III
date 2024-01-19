@@ -20,6 +20,9 @@ class BertBaseline(ClassificationTaskModel):
     def on_save_checkpoint(self, checkpoint):
         self.encoder.on_save_checkpoint(checkpoint)
 
+    def on_load_checkpoint(self, checkpoint):
+        self.encoder.on_load_checkpoint(checkpoint)
+
     def forward(self, x):
         encoded_utterances = self.encoder.encode(x['utterances'])
         emotion_logits = self.emotion_clf(encoded_utterances)
@@ -34,7 +37,7 @@ class RandomUniformClassifier(pl.LightningModule):
 
     def predict(self, X):
         batch_size = X.size(0)
-        logits = self._random_state.uniform(size=(batch_size, 4))
+        logits = self._random_state.uniform(size=(batch_size, 6))
         logits = logits > 0.5
         return torch.tensor(logits, dtype=torch.float32).to(device)
 
