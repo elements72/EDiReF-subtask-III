@@ -1,13 +1,17 @@
-from lightning.pytorch import Trainer, seed_everything
-from pytorch_lightning.loggers import WandbLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.callbacks.early_stopping import EarlyStopping
-import torch
-import lightning as pl
 import json
 import os
 
-def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=42, epochs=20, logs_path='logs', hyperparameters={}):
+import lightning as pl
+from lightning.pytorch import Trainer, seed_everything
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.loggers import WandbLogger
+
+
+def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=42, epochs=20, logs_path='logs',
+                hyperparameters=None) -> pl.LightningModule:
+    if hyperparameters is None:
+        hyperparameters = {}
 
     seed_everything(seed, workers=True)
 
@@ -18,12 +22,11 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
             hyperparameters["lr"] = file["lr"]
     else:
         print("No hyperparameters file found. Using default values.")
-        
 
     model = model_class(**hyperparameters)
 
-    
-    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}', save_dir=logs_path)
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}',
+                               save_dir=logs_path)
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=None,
@@ -47,10 +50,14 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
 
     trainer.fit(model, train_dataloader, val_dataloader)
 
+    return model
 
-def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters={}, seed=42):
 
-    PERCENT_VALID_EXAMPLES = 0.1 # increase if you want to include more validation samples
+def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=None, seed=42):
+    if hyperparameters is None:
+        hyperparameters = {}
+
+    PERCENT_VALID_EXAMPLES = 0.1  # increase if you want to include more validation samples
     EPOCHS = 5
 
     seed_everything(seed, workers=True)
@@ -59,12 +66,12 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
 
     model = model_class(**hyperparameters)
     trainer = Trainer(
-                limit_val_batches=PERCENT_VALID_EXAMPLES,
-                enable_checkpointing=False,
-                accelerator="auto",
-                max_epochs=EPOCHS,
-            )
-    
+        limit_val_batches=PERCENT_VALID_EXAMPLES,
+        enable_checkpointing=False,
+        accelerator="auto",
+        max_epochs=EPOCHS,
+    )
+
     # Create the Tuner
     tuner = pl.pytorch.tuner.Tuner(trainer)
     lr_finder = tuner.lr_find(model, datamodule)
@@ -73,14 +80,14 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
     print("#########################")
     print(f'Auto-find model LR is:\n [Model Name: {model_name}, Best Lr: {model.hparams.lr} ]')
     print("#############################")
-    
+
     # append in dict
     optim_lr_rate[model_name] = model.hparams.lr
     fig = lr_finder.plot(suggest=True)
 
     # append in model_dict
     model_lr_rate = optim_lr_rate
-            
+
     print(model_lr_rate)
     with open('hyperparams.json', 'w') as f:
         json.dump(model_lr_rate, f)

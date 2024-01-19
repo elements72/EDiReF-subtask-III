@@ -53,7 +53,7 @@ class MeldDataModule(LightningDataModule):
         generator = torch.Generator().manual_seed(42)
         # Check if val and test sets are available
         if not self.val_data_path.exists() or not self.test_data_path.exists() or not self.train_data_path.exists():
-            print('Generating val and test sets...')
+            # print('Generating val and test sets...')
             data = pd.read_json(self.dataset_path)
             # Split of the train set
             train_data, val_data, test_data = random_split(data, [0.8, 0.1, 0.1], shuffle=True, generator=generator)
@@ -62,18 +62,19 @@ class MeldDataModule(LightningDataModule):
             val_data.to_json(self.val_data_path, indent=2, orient="records", force_ascii=False)
             test_data.to_json(self.test_data_path, indent=2, orient="records", force_ascii=False)
         else:
-            print('Val and test sets already exist.')
+            # print('Val and test sets already exist.')
+            pass
 
     def setup(self, stage=None) -> None:
         # Load the data
-        print('Loading data...')
+        # print('Loading data...')
         self.train_data = pd.read_json(self.train_data_path)
         self.val_data = pd.read_json(self.val_data_path)
         self.test_data = pd.read_json(self.test_data_path)
         # Encode emotions
         emotions = self.train_data['emotions'].explode().unique()
         self.emotion_encoder.fit(emotions)
-        print("Mapping:" + str(dict(zip(self.emotion_encoder.classes_, self.emotion_encoder.transform(self.emotion_encoder.classes_)))))
+        # print("Mapping:" + str(dict(zip(self.emotion_encoder.classes_, self.emotion_encoder.transform(self.emotion_encoder.classes_)))))
         # Preprocess data
         self.train_data = self.pre_process(self.train_data)
         self.val_data = self.pre_process(self.val_data)
