@@ -3,6 +3,7 @@ from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 import torch
+import lightning as pl
 
 def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=42, epochs=20, logs_path='logs', hyperparameters={}):
 
@@ -34,3 +35,41 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
     )
 
     trainer.fit(model, train_dataloader, val_dataloader)
+
+
+def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters={}, seed=42):
+
+    PERCENT_VALID_EXAMPLES = 0.1 # increase if you want to include more validation samples
+    BATCHSIZE = 16
+    CLASSES = 6  # have 6 number of class for intel image classification dataset
+    EPOCHS = 5
+
+    seed_everything(seed, workers=True)
+
+    model = model_class(**hyperparameters)
+    trainer = Trainer(
+                limit_val_batches=PERCENT_VALID_EXAMPLES,
+                enable_checkpointing=False,
+                accelerator="auto",
+                max_epochs=EPOCHS,
+            )
+    
+    # Create the Tuner
+    tuner = pl.pytorch.tuner.Tuner(trainer)
+    lr_finder = tuner.lr_find(model, datamodule)
+
+    model.hparams.lr = lr_finder.suggestion()
+    print("#########################")
+    print(f'Auto-find model LR is:\n [Model Name: {model_name}, Best Lr: {model.hparams.lr} ]')
+    print("#############################")
+    
+    # append in dict
+    optim_lr_rate = model.hparams.lr
+    fig = lr_finder.plot(suggest=True)
+
+    # append in model_dict
+    model_lr_rate = optim_lr_rate
+            
+    print(model_lr_rate)
+    with open('lr_config.txt', 'w') as f:
+        f.write(str(model_lr_rate))
