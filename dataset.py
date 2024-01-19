@@ -97,14 +97,20 @@ class MeldDataModule(LightningDataModule):
         # Pad with a PAD sentence
 
         max_len_utterances = max([len(u) for u in utterances])
+
+        new_utterances = []
         for i, u in enumerate(utterances):
+            # copy the utterances, this is necessary because list are mutable
+            u_copy = u.copy()
             for _ in range(max_len_utterances - len(u)):
-                u.append('')
+                u_copy.append('')
+
+            new_utterances.append(u_copy)
 
         return {
             'speakers': speakers,
             'emotions': emotions,
-            'utterances': utterances,
+            'utterances': new_utterances,
             'triggers': triggers
         }        
 
