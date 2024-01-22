@@ -13,12 +13,12 @@ class LSTMResModel(ClassificationTaskModel):
     """
 
     def __init__(self, lstm_kwargs: dict, emotion_output_dim=7, trigger_output_dim=2, freeze_bert=True,
-                 bert_model_name='bert-base-uncased', use_encoder_cache: bool = True, encoder_cache_size: int = 10_000,
+                 bert_model_name='bert-base-uncased', use_encoder_cache: bool = True, encoder_cache_size: int = 100_000,
                  **kwargs):
         encoder = BertEncoder(bert_model_name, emotion_output_dim, trigger_output_dim, freeze_bert,
                               cache_output=use_encoder_cache, cache_size=encoder_cache_size)
         lstm = torch.nn.LSTM(input_size=encoder.output_dim, **lstm_kwargs, batch_first=True)
-        clf_input_dim = encoder.output_dim + lstm.hidden_size
+        clf_input_dim = encoder.output_dim + (lstm.hidden_size * 2 if lstm_kwargs['bidirectional'] else lstm.hidden_size)
 
         super().__init__(emotion_output_dim=emotion_output_dim, trigger_output_dim=trigger_output_dim,
                          clf_input_size=clf_input_dim, **kwargs)
