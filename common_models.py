@@ -9,26 +9,32 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class CLF(pl.LightningModule):
-    def __init__(self, input_dim, hidden_dim=128, output_dim=7, lr=1e-3):
+    def __init__(self, input_dim, hidden_dim=128, output_dim=7, hidden_layers=1, dropout=0.2):
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
-        self.lr = lr
+        self.dropout = dropout
+        self.hidden_layers = hidden_layers
         self.save_hyperparameters()
 
-        self.fc1 = torch.nn.Linear(input_dim, hidden_dim)
-        self.fc2 = torch.nn.Linear(hidden_dim, output_dim)
-        self.relu = torch.nn.ReLU()
-        self.dropout = torch.nn.Dropout(0.2)
+        setattr(self, f'fc0', torch.nn.Linear(self.input_dim, self.hidden_dim))
+        setattr(self, f'relu0', torch.nn.ReLU())
+        setattr(self, f'dropout0', torch.nn.Dropout(self.dropout))
+
+        for i in range(1, self.hidden_layers):
+            setattr(self, f'fc{i}', torch.nn.Linear(self.hidden_dim, self.hidden_dim))
+            setattr(self, f'relu{i}', torch.nn.ReLU())
+            setattr(self, f'dropout{i}', torch.nn.Dropout(self.dropout))
+        self.out = torch.nn.Linear(self.hidden_dim, self.output_dim)
         #self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
-        #x = self.sigmoid(x)
+        for i in range(self.hidden_layers):
+            x = getattr(self, f'fc{i}')(x)
+            x = getattr(self, f'relu{i}')(x)
+            x = getattr(self, f'dropout{i}')(x)
+        x = self.out(x)
         return x
 
 
@@ -177,7 +183,8 @@ class ClassificationTaskModel(pl.LightningModule):
 
     def __init__(self, clf_input_size: int, clf_hidden_size: int = 128,
                  emotion_output_dim=7, trigger_output_dim=2, padding_value_emotion=7, padding_value_trigger=2, lr=1e-3,
-                 class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None):
+                 class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None,
+                 hidden_layers=1, dropout=0.2):
         super().__init__()
 
         self.emotion_output_dim = emotion_output_dim
@@ -187,6 +194,8 @@ class ClassificationTaskModel(pl.LightningModule):
         self.clf_input_size = clf_input_size
         self.clf_hidden_size = clf_hidden_size
         self.lr = lr
+        self.hidden_layers = hidden_layers
+        self.dropout = dropout
 
         self.class_weights_emotion = class_weights_emotion.to(device) if class_weights_emotion is not None else None
         self.class_weights_trigger = class_weights_trigger.to(device) if class_weights_trigger is not None else None
@@ -207,11 +216,11 @@ class ClassificationTaskModel(pl.LightningModule):
                                                                 padding_value=self.padding_value_trigger,
                                                                 binary=True).to(device)
 
-        self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim)
-        self.trigger_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.trigger_output_dim)
+        self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim, self.hidden_layers, self.dropout)
+        self.trigger_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.trigger_output_dim, self.hidden_layers, self.dropout)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=4, verbose=True)
         return {
             'optimizer': optimizer,
