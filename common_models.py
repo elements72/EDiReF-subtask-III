@@ -27,7 +27,7 @@ class CLF(pl.LightningModule):
             setattr(self, f'relu{i}', torch.nn.ReLU())
             setattr(self, f'dropout{i}', torch.nn.Dropout(self.dropout))
         self.out = torch.nn.Linear(self.hidden_dim, self.output_dim)
-        #self.sigmoid = torch.nn.Sigmoid()
+        # self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x):
         for i in range(self.hidden_layers):
@@ -67,8 +67,7 @@ class BertEncoder(pl.LightningModule):
                 param.requires_grad = False
         else:
             # Add a batch norm layer after the bert model
-                self.batch_norm = torch.nn.BatchNorm1d(self.model.config.hidden_size)
-
+            self.batch_norm = torch.nn.BatchNorm1d(self.model.config.hidden_size)
 
     def on_save_checkpoint(self, checkpoint):
         if self.freeze:
@@ -171,11 +170,11 @@ class BertEncoder(pl.LightningModule):
         else:
             out = self._encode_no_cache(flattened_utterances)
 
-        # Reshape the batch of utterances into a list of utterances
-        out = out.reshape(len(utterances), -1, self.model.config.hidden_size)
-
         if not self.freeze:
             out = self.batch_norm(out)
+
+        # Reshape the batch of utterances into a list of utterances
+        out = out.reshape(len(utterances), -1, self.model.config.hidden_size)
 
         return out
 
@@ -184,7 +183,7 @@ class BertEncoder(pl.LightningModule):
         return self.model.config.hidden_size
 
 
-class   ClassificationTaskModel(pl.LightningModule):
+class ClassificationTaskModel(pl.LightningModule):
     """
     Class for the metric. It contains the metrics for the emotion and the trigger tasks.
     """
@@ -205,10 +204,10 @@ class   ClassificationTaskModel(pl.LightningModule):
         self.hidden_layers = hidden_layers
         self.dropout = dropout
 
-        if alpha != None:
+        if alpha is not None:
             self.alpha = torch.nn.Parameter(torch.tensor(alpha))
         else:
-            self.alpha = None   
+            self.alpha = None
 
         self.class_weights_emotion = class_weights_emotion.to(device) if class_weights_emotion is not None else None
         self.class_weights_trigger = class_weights_trigger.to(device) if class_weights_trigger is not None else None
@@ -229,8 +228,10 @@ class   ClassificationTaskModel(pl.LightningModule):
                                                                 padding_value=self.padding_value_trigger,
                                                                 binary=True).to(device)
 
-        self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim, self.hidden_layers, self.dropout)
-        self.trigger_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.trigger_output_dim, self.hidden_layers, self.dropout)
+        self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim, self.hidden_layers,
+                               self.dropout)
+        self.trigger_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.trigger_output_dim, self.hidden_layers,
+                               self.dropout)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
@@ -297,14 +298,16 @@ class   ClassificationTaskModel(pl.LightningModule):
 
         loss = emotion_loss + trigger_loss
 
+        # Weight the losses
+        if self.alpha is not None:
+            loss = (1 - self.alpha) * emotion_loss + self.alpha * trigger_loss
+
         self.log(f'{type}_trigger_loss', trigger_loss, prog_bar=True, on_epoch=True, on_step=False,
                  batch_size=batch_size)
         self.log(f'{type}_emotion_loss', emotion_loss, prog_bar=True, on_epoch=True, on_step=False,
                  batch_size=batch_size)
         self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
-        # Weight the losses
-        if self.alpha != None:
-            loss = (1 - self.alpha) * emotion_loss + self.alpha  * trigger_loss
+
         return loss
 
     def training_step(self, batch, batch_idx):
