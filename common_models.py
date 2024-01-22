@@ -176,7 +176,7 @@ class BertEncoder(pl.LightningModule):
         return self.model.config.hidden_size
 
 
-class ClassificationTaskModel(pl.LightningModule):
+class   ClassificationTaskModel(pl.LightningModule):
     """
     Class for the metric. It contains the metrics for the emotion and the trigger tasks.
     """
@@ -184,7 +184,7 @@ class ClassificationTaskModel(pl.LightningModule):
     def __init__(self, clf_input_size: int, clf_hidden_size: int = 128,
                  emotion_output_dim=7, trigger_output_dim=2, padding_value_emotion=7, padding_value_trigger=2, lr=1e-3,
                  class_weights_emotion: torch.Tensor | None = None, class_weights_trigger: torch.Tensor | None = None,
-                 hidden_layers=1, dropout=0.2):
+                 hidden_layers=1, dropout=0.2, alpha=None):
         super().__init__()
 
         self.emotion_output_dim = emotion_output_dim
@@ -196,6 +196,11 @@ class ClassificationTaskModel(pl.LightningModule):
         self.lr = lr
         self.hidden_layers = hidden_layers
         self.dropout = dropout
+
+        if alpha != None:
+            self.alpha = torch.nn.Parameter(torch.tensor(alpha))
+        else:
+            self.alpha = None   
 
         self.class_weights_emotion = class_weights_emotion.to(device) if class_weights_emotion is not None else None
         self.class_weights_trigger = class_weights_trigger.to(device) if class_weights_trigger is not None else None
@@ -289,6 +294,9 @@ class ClassificationTaskModel(pl.LightningModule):
         self.log(f'{type}_emotion_loss', emotion_loss, prog_bar=True, on_epoch=True, on_step=False,
                  batch_size=batch_size)
         self.log(f'{type}_loss', loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=batch_size)
+        # Weight the losses
+        if self.alpha != None:
+            loss = (1 - self.alpha) * emotion_loss + self.alpha  * trigger_loss
         return loss
 
     def training_step(self, batch, batch_idx):
