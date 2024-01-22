@@ -1,12 +1,12 @@
-from torch.utils.data import random_split, DataLoader
-from torch.utils.data import Dataset
-from lightning import LightningDataModule
 from pathlib import Path
-import torch
-import pandas as pd
-from sklearn.preprocessing import LabelEncoder
-import numpy as np
 
+import numpy as np
+import pandas as pd
+import torch
+from lightning import LightningDataModule
+from sklearn.preprocessing import LabelEncoder
+from torch.utils.data import Dataset
+from torch.utils.data import random_split, DataLoader
 
 
 class UtteranceDataset(Dataset):
@@ -19,6 +19,7 @@ class UtteranceDataset(Dataset):
     def __getitem__(self, idx):
         return self.data.iloc[idx]
 
+
 class MeldDataModule(LightningDataModule):
     def __init__(self, data_path='./data/', batch_size=16, num_workers=0):
         super().__init__()
@@ -26,9 +27,9 @@ class MeldDataModule(LightningDataModule):
 
         self.dataset_path = self.data_path / 'MELD_efr.json'
         self.train_data_path = self.data_path / 'MELD_train_efr.json'
-        self.val_data_path = self.data_path / 'MELD_val_efr.json'       
+        self.val_data_path = self.data_path / 'MELD_val_efr.json'
         self.test_data_path = self.data_path / 'MELD_test_efr.json'
-        
+
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.emotion_encoder = LabelEncoder()
@@ -40,7 +41,6 @@ class MeldDataModule(LightningDataModule):
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
-
 
     def pre_process(self, data):
         tmp = data.copy()
@@ -87,49 +87,55 @@ class MeldDataModule(LightningDataModule):
     def collate(self, batch):
         padding_value_emotion = len(self.emotion_encoder.classes_)
         padding_value_trigger = 2
-        speakers, emotions, utterances, triggers = zip(*batch)
+        batch_speakers, batch_emotions, batch_utterances, batch_triggers = zip(*batch)
 
-        emotions = [torch.tensor(e, dtype=torch.long) for e in emotions]
-        triggers = [torch.tensor(t, dtype=torch.long) for t in triggers]
+        batch_emotions = [torch.tensor(e, dtype=torch.long) for e in batch_emotions]
+        batch_triggers = [torch.tensor(t, dtype=torch.long) for t in batch_triggers]
 
-        emotions = torch.nn.utils.rnn.pad_sequence(emotions, batch_first=True, padding_value=padding_value_emotion)
-        triggers = torch.nn.utils.rnn.pad_sequence(triggers, batch_first=True, padding_value=padding_value_trigger)
+        batch_emotions = torch.nn.utils.rnn.pad_sequence(batch_emotions, batch_first=True,
+                                                         padding_value=padding_value_emotion)
+        batch_triggers = torch.nn.utils.rnn.pad_sequence(batch_triggers, batch_first=True,
+                                                         padding_value=padding_value_trigger)
         # Pad with a PAD sentence
 
-        max_len_utterances = max([len(u) for u in utterances])
+        max_len_utterances = max([len(u) for u in batch_utterances])
 
-        new_utterances = []
-        for i, u in enumerate(utterances):
+        new_batch_utterances = []
+
+        for i, (utterances, speakers) in enumerate(zip(batch_utterances, batch_speakers)):
             # copy the utterances, this is necessary because list are mutable
-            u_copy = u.copy()
-            for _ in range(max_len_utterances - len(u)):
-                u_copy.append('')
+            utterances_copy = utterances.copy()
 
-            new_utterances.append(u_copy)
+            for i in range(len(utterances_copy)):
+                utterances_copy[i] = speakers[i] + ': ' + utterances_copy[i]
+
+            # pad the utterances
+            for _ in range(max_len_utterances - len(utterances)):
+                utterances_copy.append('')
+
+            new_batch_utterances.append(utterances_copy)
 
         return {
-            'speakers': speakers,
-            'emotions': emotions,
-            'utterances': new_utterances,
-            'triggers': triggers
-        }        
+            'speakers': batch_speakers,
+            'emotions': batch_emotions,
+            'utterances': new_batch_utterances,
+            'triggers': batch_triggers
+        }
 
     def train_dataloader(self, collate_fn=None):
         if collate_fn is None:
             collate_fn = self.collate
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=self.num_workers)
-    
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn,
+                          num_workers=self.num_workers)
+
     def val_dataloader(self, collate_fn=None):
         if collate_fn is None:
             collate_fn = self.collate
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn, num_workers=self.num_workers)
-    
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn,
+                          num_workers=self.num_workers)
+
     def test_dataloader(self, collate_fn=None):
         if collate_fn is None:
             collate_fn = self.collate
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn, num_workers=self.num_workers)
-    
-    
- 
-
-                
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn,
+                          num_workers=self.num_workers)
