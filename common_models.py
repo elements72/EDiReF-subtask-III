@@ -65,6 +65,10 @@ class BertEncoder(pl.LightningModule):
         if self.freeze:
             for param in self.model.parameters():
                 param.requires_grad = False
+        else:
+            # Add a batch norm layer after the bert model
+                self.batch_norm = torch.nn.BatchNorm1d(self.model.config.hidden_size)
+
 
     def on_save_checkpoint(self, checkpoint):
         if self.freeze:
@@ -169,6 +173,10 @@ class BertEncoder(pl.LightningModule):
 
         # Reshape the batch of utterances into a list of utterances
         out = out.reshape(len(utterances), -1, self.model.config.hidden_size)
+
+        if not self.freeze:
+            out = self.batch_norm(out)
+
         return out
 
     @property
