@@ -43,25 +43,22 @@ class RandomUniformClassifier(pl.LightningModule):
         self.num_emotion_classes = num_emotion_classes
         self.num_trigger_classes = num_trigger_classes
 
-    def determine_num_classes(self, dataloader, key):
-        sample_batch = next(iter(dataloader))
-        num_classes = sample_batch[key].size(1)
-        return num_classes
-
-    def initialize_classes(self, train_dataloader):
-        self.num_emotion_classes = self.determine_num_classes(train_dataloader, "emotions")
-        self.num_trigger_classes = self.determine_num_classes(train_dataloader, "triggers")
-
     def predict_emotions(self, X):
         batch_size = X.size(0)
-        emotions_logits = self._random_state.uniform(size=(batch_size, self.num_emotion_classes))
-        emotions_predictions = torch.tensor(emotions_logits > 0.5, dtype=torch.float32).to(device)
+        #mask to ignore padding in predictions
+        mask = X == 7
+        emotions_logits = self._random_state.randint(low=0, high=self.num_emotion_classes, size=(batch_size, X.size(1)))
+        emotions_logits[mask] = 7
+        emotions_predictions = torch.tensor(emotions_logits, dtype=torch.int).to(device)
         return emotions_predictions
 
     def predict_triggers(self, X):
         batch_size = X.size(0)
-        triggers_logits = self._random_state.uniform(size=(batch_size, self.num_trigger_classes))
-        triggers_predictions = torch.tensor(triggers_logits > 0.5, dtype=torch.float32).to(device)
+        #mask to ignore padding in predictions
+        mask = X == 2
+        triggers_logits = self._random_state.randint(low=0, high=self.num_trigger_classes, size=(batch_size, X.size(1)))
+        triggers_logits[mask] = 2
+        triggers_predictions = torch.tensor(triggers_logits > 0.5, dtype=torch.int).to(device)
         return triggers_predictions
 
 '''
