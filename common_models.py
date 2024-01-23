@@ -1,6 +1,6 @@
 import lightning as pl
 import torch
-from transformers import BertModel, BertTokenizerFast
+from transformers import BertModel, BertTokenizerFast, RobertaModel, RobertaTokenizerFast
 
 from metrics import F1ScoreCumulative, F1ScoreDialogues
 from utils import FIFOCache
@@ -43,8 +43,12 @@ class BertEncoder(pl.LightningModule):
                  freeze_bert: bool = True, encoder_name: str = "encoder", cache_output: bool = False,
                  cache_size: int = 100_000):
         super().__init__()
-        self.model = BertModel.from_pretrained(bert_model_name)
-        self.tokenizer = BertTokenizerFast.from_pretrained(bert_model_name, batched=True)
+        if 'roberta' in bert_model_name:
+            self.model = RobertaModel.from_pretrained(bert_model_name)
+            self.tokenizer = RobertaTokenizerFast.from_pretrained(bert_model_name, batched=True)
+        else:    
+            self.model = BertModel.from_pretrained(bert_model_name)
+            self.tokenizer = BertTokenizerFast.from_pretrained(bert_model_name, batched=True)
 
         self.emotion_output_dim = emotion_output_dim
         self.trigger_output_dim = trigger_output_dim
