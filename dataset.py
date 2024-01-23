@@ -7,7 +7,9 @@ from lightning import LightningDataModule
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
 from torch.utils.data import random_split, DataLoader
+from sklearn.preprocessing import LabelEncoder  
 
+from sklearn.model_selection import train_test_split
 
 class UtteranceDataset(Dataset):
     def __init__(self, data):
@@ -50,13 +52,19 @@ class MeldDataModule(LightningDataModule):
         return tmp
 
     def prepare_data(self) -> None:
-        generator = torch.Generator().manual_seed(42)
         # Check if val and test sets are available
         if not self.val_data_path.exists() or not self.test_data_path.exists() or not self.train_data_path.exists():
             # print('Generating val and test sets...')
             data = pd.read_json(self.dataset_path)
+
             # Split of the train set
-            train_data, val_data, test_data = random_split(data, [0.8, 0.1, 0.1], shuffle=True, generator=generator)
+            train_data, val_test = train_test_split(data, test_size=0.2, shuffle=True)
+            # Split of the val and test sets
+            val_data, test_data = train_test_split(val_test, test_size=0.5, shuffle=True)
+            # Convert to pandas dataframe
+            train_data = pd.DataFrame(train_data, columns=data.columns)
+            val_data = pd.DataFrame(val_data, columns=data.columns)
+            test_data = pd.DataFrame(test_data, columns=data.columns)
             # Save the data
             train_data.to_json(self.train_data_path, indent=2, orient="records", force_ascii=False)
             val_data.to_json(self.val_data_path, indent=2, orient="records", force_ascii=False)
