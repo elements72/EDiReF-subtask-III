@@ -10,11 +10,11 @@ from pytorch_lightning.loggers import WandbLogger
 
 from typing import Generic, TypeVar
 
-def test_model(model, test_dataloader):
+def test_model(model, test_loader):
     trainer = pl.Trainer()
-    trainer.test(model, test_dataloader)
+    trainer.test(model, test_loader)
 
-def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=42, epochs=20, logs_path='logs',
+def train_model(model_class, model_name, train_loader, val_loader, seed=42, epochs=20, logs_path='logs',
                 hyperparameters=None) -> pl.LightningModule:
     if hyperparameters is None:
         hyperparameters = {}
@@ -39,7 +39,7 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=None,
-        filename=f'{model_name}-seed={seed}' + '-{epoch:02d}-{val_loss:.2f}-{val_f1_score:.2f}',
+        filename=f'{model_name}-seed={seed}' + '-{epoch:02d}-{val_loss:.2f}',
         save_top_k=1,
     )
     early_stop_callback = EarlyStopping(
@@ -57,19 +57,24 @@ def train_model(model_class, model_name, train_dataloader, val_dataloader, seed=
         deterministic=False
     )
 
-    trainer.fit(model, train_dataloader, val_dataloader)
+    trainer.fit(model, train_loader, val_loader)
 
     return model
 
+def train_model_seeds(model_class, model_name, train_loader, val_loader, seeds, epochs=20, logs_path='logs', hyperparameters=None):
+    # Set seeds
+    models = []
+    for seed in seeds:
+        models.append(train_model(model_class, model_name, train_loader, val_loader, seed, epochs, logs_path, hyperparameters))
+    return models
 
-def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=None, seed=42):
+
+def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=None):
     if hyperparameters is None:
         hyperparameters = {}
 
     PERCENT_VALID_EXAMPLES = 0.1  # increase if you want to include more validation samples
     EPOCHS = 5
-
-    seed_everything(seed, workers=True)
 
     optim_lr_rate = {}
 

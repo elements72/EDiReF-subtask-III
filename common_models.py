@@ -220,6 +220,8 @@ class ClassificationTaskModel(pl.LightningModule):
         self.f1_cumulative_trigger = {}
         self.f1_dialogues_emotion = {}
         self.f1_dialogues_trigger = {}
+        self.f1_dialogues_trigger_multi = {}
+        self.f1_cumulative_trigger_multi = {}
         for stage in ['train', 'val', 'test']:
             self.f1_cumulative_emotion[stage] = F1ScoreCumulative(num_classes=self.emotion_output_dim,
                                                                   padding_value=self.padding_value_emotion).to(device)
@@ -231,6 +233,12 @@ class ClassificationTaskModel(pl.LightningModule):
             self.f1_dialogues_trigger[stage] = F1ScoreDialogues(num_classes=self.trigger_output_dim,
                                                                 padding_value=self.padding_value_trigger,
                                                                 binary=True).to(device)
+            self.f1_cumulative_trigger_multi[stage] = F1ScoreCumulative(num_classes=self.trigger_output_dim,
+                                                                            padding_value=self.padding_value_trigger,
+                                                                            binary=False).to(device)
+            self.f1_dialogues_trigger_multi[stage] = F1ScoreDialogues(num_classes=self.trigger_output_dim,
+                                                                            padding_value=self.padding_value_trigger,
+                                                                            binary=False).to(device)
 
         self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim, self.hidden_layers,
                                self.dropout)
@@ -249,21 +257,29 @@ class ClassificationTaskModel(pl.LightningModule):
     def metric_update(self, stage: str, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger):
         self.f1_cumulative_emotion[stage].update(y_hat_class_emotion, y_emotion)
         self.f1_cumulative_trigger[stage].update(y_hat_class_trigger, y_trigger)
+        self.f1_cumulative_trigger_multi[stage].update(y_hat_class_trigger, y_trigger)
 
         self.f1_dialogues_emotion[stage].update(y_hat_class_emotion, y_emotion)
         self.f1_dialogues_trigger[stage].update(y_hat_class_trigger, y_trigger)
+        self.f1_dialogues_trigger_multi[stage].update(y_hat_class_trigger, y_trigger)
 
     def on_epoch_type_end(self, type):
         self.log_dict({
             f'f1_{type}_cumulative_emotion': self.f1_cumulative_emotion[type].compute(),
             f'f1_{type}_cumulative_trigger': self.f1_cumulative_trigger[type].compute(),
+            f'f1_{type}_cumulative_trigger_multi': self.f1_cumulative_trigger_multi[type].compute(),
             f'f1_{type}_dialogues_emotion': self.f1_dialogues_emotion[type].compute(),
-            f'f1_{type}_dialogues_trigger': self.f1_dialogues_trigger[type].compute()
+            f'f1_{type}_dialogues_trigger': self.f1_dialogues_trigger[type].compute(),
+            f'f1_{type}_dialogues_trigger_multi': self.f1_dialogues_trigger_multi[type].compute(),
         }, prog_bar=True, on_epoch=True, on_step=False)
+        # Reset metrics
         self.f1_cumulative_emotion[type].reset()
         self.f1_cumulative_trigger[type].reset()
+        self.f1_cumulative_trigger_multi[type].reset()
+
         self.f1_dialogues_emotion[type].reset()
         self.f1_dialogues_trigger[type].reset()
+        self.f1_dialogues_trigger_multi[type].reset()
 
     def on_train_epoch_end(self):
         self.on_epoch_type_end('train')

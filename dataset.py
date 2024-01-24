@@ -129,21 +129,78 @@ class MeldDataModule(LightningDataModule):
             'utterances': new_batch_utterances,
             'triggers': batch_triggers
         }
+    
+    def encode_utterance(self, t, dialogue, speakers, bert=False):
+        # Not used, tokenizer add it automatically
+        cls = "[CLS]" if bert else "<s>"
+        eos = "[EOS]" if bert else "</s>"
+        sep = "[SEP]" if bert else "</s>"
 
-    def train_dataloader(self, collate_fn=None):
-        if collate_fn is None:
+        sequence = f"{sep} {speakers[t].upper()}: {dialogue[t]} {sep}"
+        for i in range(1, len(dialogue)):
+            # Append next utterance
+            if t+i < len(dialogue):
+                sequence = sequence + f" {speakers[t+i].upper()}: {dialogue[t+i]} "
+            # Append past utterance
+            if t-i >= 0:
+                sequence = f" {speakers[t-i].upper()}: {dialogue[t-i]} " + sequence
+        sequence = sequence
+        return sequence
+
+    def collate_context(self, batch):
+        padding_value_emotion = 7
+        padding_value_trigger = 2
+        speakers, emotions, utterances, triggers = zip(*batch)
+
+        emotions = [torch.tensor(e, dtype=torch.long) for e in emotions]
+        triggers = [torch.tensor(t, dtype=torch.long) for t in triggers]
+
+        emotions = torch.nn.utils.rnn.pad_sequence(emotions, batch_first=True, padding_value=padding_value_emotion)
+        triggers = torch.nn.utils.rnn.pad_sequence(triggers, batch_first=True, padding_value=padding_value_trigger)
+        # Pad with a PAD sentence
+
+        max_len_utterances = max([len(u) for u in utterances])
+
+        new_utterances = []
+        # For each dialogue
+        for i, u in enumerate(utterances):
+            # copy the utterances, this is necessary because list are mutable
+            dialogue = u.copy()
+            for t in range(len(u)):
+                sequence = self.encode_utterance(t, u, speakers[i])
+                dialogue[t] = sequence
+            for _ in range(max_len_utterances - len(u)):
+                dialogue.append('')
+
+            new_utterances.append(dialogue)
+
+        return {
+            'speakers': speakers,
+            'emotions': emotions,
+            'utterances': new_utterances,
+            'triggers': triggers
+        }
+
+    def train_dataloader(self, collate_context=False):
+        if collate_context:
+            collate_fn = self.collate_context
+        else:
             collate_fn = self.collate
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn,
                           num_workers=self.num_workers)
 
-    def val_dataloader(self, collate_fn=None):
-        if collate_fn is None:
+    def val_dataloader(self, collate_context=False):
+        if collate_context:
+            collate_fn = self.collate_context
+        else:
             collate_fn = self.collate
         return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn,
                           num_workers=self.num_workers)
 
-    def test_dataloader(self, collate_fn=None):
-        if collate_fn is None:
+    def test_dataloader(self, collate_context=False):
+        if collate_context:
+            collate_fn = self.collate_context
+        else:
             collate_fn = self.collate
         return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn,
                           num_workers=self.num_workers)
