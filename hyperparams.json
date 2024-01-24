@@ -3,21 +3,21 @@
     "lr": 0.006918309709189364
   },
   "bert-baseline-unfreeze": {
-    "lr": 0.0005248074602497723
+    "lr": 0.000001
   },
   "bert-lstm-freeze": {
     "lr": 0.8317637711026709
   },
   "bert-lstm-unfreeze": {
-    "lr": 0.000630957344480193
+    "lr": 0.000001
   },
   "bert-attention-freeze": {
     "lr": 0.0019054607179632484
   },
   "bert-attention-unfreeze": {
-    "lr": 0.000363078054770101
+    "lr": 0.000001
   },
   "emoberta": {
-    "lr": 0.025118864315095822
+    "lr": 0.000001
   }
 }

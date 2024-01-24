@@ -26,7 +26,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
         with open('hyperparams.json', 'r') as f:
             file = json.load(f)
             try:
-                hyperparameters[model_name]["lr"] = file[model_name]["lr"]
+                file[model_name]["lr"] = file[model_name]["lr"]
             except KeyError:
                 print(f"Hyperparameters for model {model_name} not found. Using default values.")
     else:
@@ -45,7 +45,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     early_stop_callback = EarlyStopping(
         monitor='val_loss',
         patience=3,
-        verbose=True,
+        verbose=False,
         mode='min'
     )
 
