@@ -110,7 +110,6 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
     optim_lr_rate[model_name]['lr'] = model.hparams.lr
     # fig = lr_finder.plot(suggest=True)
 
-    print(optim_lr_rate)
     if os.path.exists("hyperparams.json"):
         with open('hyperparams.json', 'r+') as f:
             file = json.load(f)

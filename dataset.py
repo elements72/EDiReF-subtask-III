@@ -58,9 +58,9 @@ class MeldDataModule(LightningDataModule):
             data = pd.read_json(self.dataset_path)
 
             # Split of the train set
-            train_data, val_test = train_test_split(data, test_size=0.2, shuffle=True)
+            train_data, val_test = train_test_split(data, test_size=0.2, shuffle=False)
             # Split of the val and test sets
-            val_data, test_data = train_test_split(val_test, test_size=0.5, shuffle=True)
+            val_data, test_data = train_test_split(val_test, test_size=0.5, shuffle=False)
             # Convert to pandas dataframe
             train_data = pd.DataFrame(train_data, columns=data.columns)
             val_data = pd.DataFrame(val_data, columns=data.columns)
