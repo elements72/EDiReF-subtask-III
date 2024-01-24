@@ -181,12 +181,14 @@ class MeldDataModule(LightningDataModule):
             'triggers': triggers
         }
 
-    def train_dataloader(self, collate_context=False):
+    def train_dataloader(self, collate_context=False. batch_size=None):
         if collate_context:
             collate_fn = self.collate_context
         else:
             collate_fn = self.collate
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn,
+        if batch_size is None:
+            batch_size = self.batch_size
+        return DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn,
                           num_workers=self.num_workers)
 
     def val_dataloader(self, collate_context=False):
@@ -194,13 +196,17 @@ class MeldDataModule(LightningDataModule):
             collate_fn = self.collate_context
         else:
             collate_fn = self.collate
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn,
+        if batch_size is None:
+            batch_size = self.batch_size
+        return DataLoader(self.val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn,
                           num_workers=self.num_workers)
 
-    def test_dataloader(self, collate_context=False):
+    def test_dataloader(self, collate_context=False, batch_size=None):
         if collate_context:
             collate_fn = self.collate_context
         else:
             collate_fn = self.collate
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=collate_fn,
+        if batch_size is None:
+            batch_size = self.batch_size
+        return DataLoader(self.test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn,
                           num_workers=self.num_workers)

@@ -35,9 +35,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     model = model_class(**hyperparameters)
 
     # Create wandb logger
-    wandb_logger = WandbLogger
-
-    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}', )
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}', reinit=True, config=hyperparameters, id=f'{model_name}-seed={seed}')
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=logs_path,
