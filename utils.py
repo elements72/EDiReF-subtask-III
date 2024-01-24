@@ -26,7 +26,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
         with open('hyperparams.json', 'r') as f:
             file = json.load(f)
             try:
-                file[model_name]["lr"] = file[model_name]["lr"]
+                hyperparameters["lr"] = file[model_name]["lr"]
             except KeyError:
                 print(f"Hyperparameters for model {model_name} not found. Using default values.")
     else:
@@ -37,9 +37,9 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     # Create wandb logger
     wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed-{seed}', reinit=True, config=hyperparameters, id=f'{model_name}-seed-{seed}')
     checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',
-        dirpath=logs_path,
-        filename=f'{model_name}-seed-{seed}' + '-{epoch:02d}-{val_loss:.2f}',
+            monitor='val_loss',
+            dirpath=logs_path,
+            filename=f'{model_name}-seed-{seed}' + '-{epoch:02d}-{val_loss:.2f}',
         save_top_k=1,
     )
     early_stop_callback = EarlyStopping(
