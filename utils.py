@@ -34,8 +34,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
 
     model = model_class(**hyperparameters)
 
-    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}',
-                               save_dir=logs_path)
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}')
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=None,
@@ -63,10 +62,12 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
 
 def train_model_seeds(model_class, model_name, train_loader, val_loader, seeds, epochs=20, logs_path='logs', hyperparameters=None):
     # Set seeds
-    models = []
     for seed in seeds:
-        models.append(train_model(model_class, model_name, train_loader, val_loader, seed, epochs, logs_path, hyperparameters))
-    return models
+        print("#" * 50)
+        print(f"Training model {model_name} with seed {seed}")
+        print("#" * 50)
+        train_model(model_class, model_name, train_loader, val_loader, seed, epochs, logs_path, hyperparameters)
+    return 
 
 
 def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=None):
@@ -113,7 +114,7 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
         with open('hyperparams.json', 'r+') as f:
             file = json.load(f)
             file.update(optim_lr_rate)
-            file.seek(0)
+            f.seek(0)
             json.dump(file, f, indent=2)
     else:
         with open('hyperparams.json', 'w') as f:
