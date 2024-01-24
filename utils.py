@@ -73,6 +73,14 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
     if hyperparameters is None:
         hyperparameters = {}
 
+    # Check if the hyperparameters of the model are already in the file
+    if os.path.exists("hyperparams.json"):
+        with open('hyperparams.json', 'r') as f:
+            file = json.load(f)
+            if file.get(model_name) is not None:
+                print(f"Hyperparameters for model {model_name} already found. Skipping...")
+                return
+
     PERCENT_VALID_EXAMPLES = 0.1  # increase if you want to include more validation samples
     EPOCHS = 5
 
@@ -98,14 +106,14 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
     # append in dict
     optim_lr_rate[model_name] = {}
     optim_lr_rate[model_name]['lr'] = model.hparams.lr
-    fig = lr_finder.plot(suggest=True)
+    #   fig = lr_finder.plot(suggest=True)
 
     # append in model_dict
     model_lr_rate = optim_lr_rate
 
     print(model_lr_rate)
-    with open('hyperparams.json', 'w') as f:
-        json.dump(model_lr_rate, f)
+    with open('hyperparams.json', 'a') as f:
+        json.dump(model_lr_rate, f, indent=2)
 
 
 

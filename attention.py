@@ -32,3 +32,6 @@ class DialoguesAttention(ClassificationTaskModel):
 
     def on_save_checkpoint(self, checkpoint):
         self.encoder.on_save_checkpoint(checkpoint)
+        
+    def on_load_checkpoint(self, checkpoint):
+        self.encoder.on_load_checkpoint(checkpoint)
