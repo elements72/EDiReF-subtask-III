@@ -15,7 +15,7 @@ def test_model(model, test_loader):
     trainer.test(model, test_loader)
 
 def train_model(model_class, model_name, train_loader, val_loader, seed=42, epochs=20, logs_path='logs',
-                hyperparameters=None) -> pl.LightningModule:
+                hyperparameters=None, wandb=None) -> pl.LightningModule:
     if hyperparameters is None:
         hyperparameters = {}
 
@@ -34,10 +34,13 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
 
     model = model_class(**hyperparameters)
 
-    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}')
+    # Create wandb logger
+    wandb_logger = WandbLogger
+
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed={seed}', )
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
-        dirpath=None,
+        dirpath=logs_path,
         filename=f'{model_name}-seed={seed}' + '-{epoch:02d}-{val_loss:.2f}',
         save_top_k=1,
     )
@@ -57,16 +60,16 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     )
 
     trainer.fit(model, train_loader, val_loader)
-
+    wandb_logger.experiment.finish()
     return model
 
-def train_model_seeds(model_class, model_name, train_loader, val_loader, seeds, epochs=20, logs_path='logs', hyperparameters=None):
+def train_model_seeds(model_class, model_name, train_loader, val_loader, seeds, epochs=20, logs_path='logs', hyperparameters=None, wandb=None):
     # Set seeds
     for seed in seeds:
         print("#" * 50)
         print(f"Training model {model_name} with seed {seed}")
         print("#" * 50)
-        train_model(model_class, model_name, train_loader, val_loader, seed, epochs, logs_path, hyperparameters)
+        train_model(model_class, model_name, train_loader, val_loader, seed, epochs, logs_path, hyperparameters, wandb)
     return 
 
 
