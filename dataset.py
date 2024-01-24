@@ -181,7 +181,7 @@ class MeldDataModule(LightningDataModule):
             'triggers': triggers
         }
 
-    def train_dataloader(self, collate_context=False. batch_size=None):
+    def train_dataloader(self, collate_context=False, batch_size=None):
         if collate_context:
             collate_fn = self.collate_context
         else:
@@ -191,7 +191,7 @@ class MeldDataModule(LightningDataModule):
         return DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn,
                           num_workers=self.num_workers)
 
-    def val_dataloader(self, collate_context=False):
+    def val_dataloader(self, collate_context=False, batch_size=None):
         if collate_context:
             collate_fn = self.collate_context
         else:
