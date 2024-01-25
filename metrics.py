@@ -19,8 +19,6 @@ class F1ScoreCumulative(Metric):
         else:
             self.f1_score = BinaryF1Score(ignore_index=self.padding_value)
 
-        print('F1ScoreCumulative: binary = ', self.binary)
-
     def update(self, y_hat_class: torch.Tensor, y_class: torch.Tensor):
         self.f1_score.update(y_hat_class, y_class)
 

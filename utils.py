@@ -58,7 +58,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     )
 
     trainer.fit(model, train_loader, val_loader)
-    wandb_logger.experiment.finish()
+    wandb.finish()
     return model
 
 def train_model_seeds(model_class, model_name, train_loader, val_loader, seeds, epochs=20, logs_path='logs', hyperparameters=None, wandb=None):
