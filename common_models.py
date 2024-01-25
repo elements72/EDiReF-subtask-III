@@ -46,7 +46,7 @@ class BertEncoder(pl.LightningModule):
         if 'roberta' in bert_model_name:
             self.model = RobertaModel.from_pretrained(bert_model_name)
             self.tokenizer = RobertaTokenizerFast.from_pretrained(bert_model_name, batched=True)
-        else:    
+        else:
             self.model = BertModel.from_pretrained(bert_model_name)
             self.tokenizer = BertTokenizerFast.from_pretrained(bert_model_name, batched=True)
 
@@ -234,11 +234,11 @@ class ClassificationTaskModel(pl.LightningModule):
                                                                 padding_value=self.padding_value_trigger,
                                                                 binary=True).to(device)
             self.f1_cumulative_trigger_multi[stage] = F1ScoreCumulative(num_classes=self.trigger_output_dim,
-                                                                            padding_value=self.padding_value_trigger,
-                                                                            binary=False).to(device)
+                                                                        padding_value=self.padding_value_trigger,
+                                                                        binary=False).to(device)
             self.f1_dialogues_trigger_multi[stage] = F1ScoreDialogues(num_classes=self.trigger_output_dim,
-                                                                            padding_value=self.padding_value_trigger,
-                                                                            binary=False).to(device)
+                                                                      padding_value=self.padding_value_trigger,
+                                                                      binary=False).to(device)
 
         self.emotion_clf = CLF(self.clf_input_size, self.clf_hidden_size, self.emotion_output_dim, self.hidden_layers,
                                self.dropout)
@@ -290,22 +290,34 @@ class ClassificationTaskModel(pl.LightningModule):
     def on_test_epoch_end(self):
         self.on_epoch_type_end('test')
 
-    def type_step(self, batch, batch_idx, type):
-        emotion_logits, trigger_logits = self(batch)
-
-        batch_size = emotion_logits.size(0)
-        # Since the trigger is a binary classification task, we need to squeeze the last dimension
-        # [batch_size, seq_len, 1] -> [batch_size, seq_len]
+    def _transform_logits(self, emotion_logits, trigger_logits):
         trigger_logits = trigger_logits.squeeze(-1)
         trigger_logits = torch.movedim(trigger_logits, 1, 2)
         emotion_logits = torch.movedim(emotion_logits, 1, 2)
 
-        y_hat_class_emotion = emotion_logits  # torch.argmax(emotion_logits, dim=2)
-        y_hat_class_trigger = trigger_logits  # torch.argmax(trigger_logits, dim=2)
+        return emotion_logits, trigger_logits
+
+    def _predict_from_logits(self, emotion_logits, trigger_logits):
+        emotion_logits = torch.nn.Softmax(dim=1)(emotion_logits)
+        trigger_logits = torch.nn.Softmax(dim=1)(trigger_logits)
+
+        emotion_pred = torch.argmax(emotion_logits, dim=1)
+        trigger_pred = torch.argmax(trigger_logits, dim=1)
+
+        return emotion_pred, trigger_pred
+
+    def type_step(self, batch, batch_idx, type):
+        emotion_logits, trigger_logits = self(batch)
+        emotion_logits, trigger_logits = self._transform_logits(emotion_logits, trigger_logits)
 
         y_emotion = batch['emotions'].to(device)
         y_trigger = batch['triggers'].to(device)
 
+        # Compute metrics
+        y_emotion_pred, y_trigger_pred = self._predict_from_logits(emotion_logits, trigger_logits)
+        self.metric_update(type, y_emotion_pred, y_emotion, y_trigger_pred, y_trigger)
+
+        # Compute loss
         emotion_loss_obj = torch.nn.CrossEntropyLoss(ignore_index=self.padding_value_emotion,
                                                      weight=self.class_weights_emotion)
         trigger_loss_obj = torch.nn.CrossEntropyLoss(ignore_index=self.padding_value_trigger,
@@ -314,14 +326,13 @@ class ClassificationTaskModel(pl.LightningModule):
         emotion_loss = emotion_loss_obj(emotion_logits, y_emotion)
         trigger_loss = trigger_loss_obj(trigger_logits, y_trigger)
 
-        self.metric_update(type, y_hat_class_emotion, y_emotion, y_hat_class_trigger, y_trigger)
-
         loss = emotion_loss + trigger_loss
 
         # Weight the losses
         if self.alpha is not None:
             loss = (1 - self.alpha) * emotion_loss + self.alpha * trigger_loss
 
+        batch_size = emotion_logits.size(0)
         self.log(f'{type}_trigger_loss', trigger_loss, prog_bar=True, on_epoch=True, on_step=False,
                  batch_size=batch_size)
         self.log(f'{type}_emotion_loss', emotion_loss, prog_bar=True, on_epoch=True, on_step=False,
@@ -338,3 +349,13 @@ class ClassificationTaskModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         return self.type_step(batch, batch_idx, 'test')
+
+    def pred(self, batch, batch_idx, dataloader_idx=None):
+        emotion_logits, trigger_logits = self(batch)
+        emotion_logits, trigger_logits = self._transform_logits(emotion_logits, trigger_logits)
+        predictions = self._predict_from_logits(emotion_logits, trigger_logits)
+
+        return {
+            'emotions': predictions[0],
+            'triggers': predictions[1]
+        }
