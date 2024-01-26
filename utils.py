@@ -7,8 +7,61 @@ from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
-
+import random
+import string
 from typing import Generic, TypeVar
+
+from pathlib import Path
+import wandb
+
+artifacts_path = Path("artifacts")
+
+
+def generate_model_id(model_name):
+    N = 5
+    # Generate a random id for the model
+    id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+    model_id = f"{model_name}-{id}"
+    return model_id
+
+def save_model_id(model_name, model_id):
+    # Save on file the mapping between model name and model id
+    if os.path.exists("model_to_id.json"):
+        with open('model_to_id.json', 'r+') as f:
+            file = json.load(f)
+            file.update({model_name: model_id})
+            f.seek(0)
+            json.dump(file, f, indent=2)
+    else:
+        with open('model_to_id.json', 'w') as f:
+            json.dump({model_name: model_id}, f, indent=2)
+
+def load_model_id(model_name):
+    if os.path.exists("model_to_id.json"):
+        with open('model_to_id.json', 'r') as f:
+            file = json.load(f)
+            try:
+                model_id = file[model_name]
+            except KeyError:
+                print(f"Model id for model {model_name} not found.")
+    else:
+        print("No model id file found.")
+    return model_id
+
+def load_artifacts(model_id):
+    checkpoint_reference = f"{model_id}:latest"
+    # download checkpoint locally (if not already cached)
+    run = wandb.init(project="EDiReF-subtask-III")
+    artifact = run.use_artifact(checkpoint_reference, type="model")
+    _ = artifact.download()
+
+    # load checkpoint
+def load_model(model_class, model_name):
+    model_id = load_model_id(model_name)
+    load_artifacts(model_name)
+    weights_path = artifacts_path / model_id / "model.ckpt" 
+    model = model_class.load_from_checkpoint(weights_path)
+    return model
 
 def test_model(model, test_loader):
     trainer = pl.Trainer()
@@ -34,8 +87,13 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
 
     model = model_class(**hyperparameters)
 
+    model_name = f"{model_name}-seed-{seed}"
+    model_id = generate_model_id(model_name)
+    save_model_id(model_name, model_id)
+    
+
     # Create wandb logger
-    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=f'{model_name}-seed-{seed}', reinit=True)
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name={model_name}-seed-{seed}, reinit=True, id=model_id)
     checkpoint_callback = ModelCheckpoint(
             monitor='val_loss',
             dirpath=logs_path,
