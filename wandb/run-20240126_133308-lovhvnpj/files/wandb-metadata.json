@@ -1,0 +1,52 @@
+{
+    "os": "Windows-10-10.0.22631-SP0",
+    "python": "3.11.0",
+    "heartbeatAt": "2024-01-26T12:33:09.346442",
+    "startedAt": "2024-01-26T12:33:08.587680",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "<python with no main file>",
+    "codePathLocal": null,
+    "git": {
+        "remote": "https://github.com/elements72/EDiReF-subtask-III.git",
+        "commit": "d935a64dfc490aa4b1f59ebf153cbac7d1fd46ec"
+    },
+    "email": "itsalsblashere@gmail.com",
+    "root": "C:/Users/Acer/Dropbox/PC/Desktop/EDiReF-subtask-III",
+    "host": "LAPTOP-S9UNHB86",
+    "username": "Acer",
+    "executable": "c:\\Users\\Acer\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 2304.0,
+        "min": 0.0,
+        "max": 2304.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2304.0,
+            "min": 0.0,
+            "max": 2304.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 952.7548789978027,
+            "used": 372.9057502746582
+        }
+    },
+    "gpu": "GeForce RTX 3060 Laptop GPU",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "GeForce RTX 3060 Laptop GPU",
+            "memory_total": 6442450944
+        }
+    ],
+    "memory": {
+        "total": 15.768852233886719
+    }
+}
