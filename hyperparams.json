@@ -1,0 +1,23 @@
+{
+    "bert-baseline-freeze": {
+        "lr": 0.001
+    },
+    "bert-baseline-unfreeze": {
+        "lr": 0.00001
+    },
+    "bert-lstm-freeze": {
+        "lr": 0.0001
+    },
+    "bert-lstm-unfreeze": {
+        "lr": 0.00001
+    },
+    "bert-attention-freeze": {
+        "lr": 0.001
+    },
+    "bert-attention-unfreeze": {
+        "lr": 0.00001
+    },
+    "emoberta": {
+        "lr": 0.00001
+    }
+}
