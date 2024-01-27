@@ -19,6 +19,7 @@ artifacts_path = Path("artifacts")
 
 def generate_model_id(model_name):
     N = 5
+    random.seed()
     # Generate a random id for the model
     id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
     model_id = f"{model_name}-{id}"
@@ -72,7 +73,6 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     if hyperparameters is None:
         hyperparameters = {}
 
-    seed_everything(seed, workers=True)
 
     if os.path.exists("hyperparams.json"):
         print("Loading hyperparameters from file...")
@@ -90,19 +90,20 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     model_name = f"{model_name}-seed-{seed}"
     model_id = generate_model_id(model_name)
     save_model_id(model_name, model_id)
+    seed_everything(seed, workers=True)
     
 
     # Create wandb logger
-    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name={model_name}-seed-{seed}, reinit=True, id=model_id)
+    wandb_logger = WandbLogger(log_model="all", project="EDiReF-subtask-III", name=model_name, reinit=True, id=model_id)
     checkpoint_callback = ModelCheckpoint(
             monitor='val_loss',
             dirpath=logs_path,
-            filename=f'{model_name}-seed-{seed}' + '-{epoch:02d}-{val_loss:.2f}',
+            filename=model_name + '-{epoch:02d}-{val_loss:.2f}',
         save_top_k=1,
     )
     early_stop_callback = EarlyStopping(
         monitor='val_loss',
-        patience=3,
+        patience=5,
         verbose=False,
         mode='min'
     )
