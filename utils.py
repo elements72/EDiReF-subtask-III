@@ -11,6 +11,7 @@ import random
 import string
 from typing import Generic, TypeVar
 
+import pandas as pd
 from pathlib import Path
 import wandb
 
@@ -47,20 +48,31 @@ def load_model_id(model_name):
                 print(f"Model id for model {model_name} not found.")
     else:
         print("No model id file found.")
-    return model_id
+    return f"model-{model_id}"
 
 def load_artifacts(model_id):
-    checkpoint_reference = f"{model_id}:latest"
-    # download checkpoint locally (if not already cached)
-    run = wandb.init(project="EDiReF-subtask-III")
-    artifact = run.use_artifact(checkpoint_reference, type="model")
-    _ = artifact.download()
+
+    run = wandb.init(project="EDiReF-subtask-III", job_type="download_artifacts")
+
+    # Query W&B for an artifact and mark it as input to this run
+    artifact = run.use_artifact(f"{model_id}:latest")
+    # Download the artifact's contents
+    artifact_dir = artifact.download()
+    run.finish()
+    return Path(artifact_dir)
 
     # load checkpoint
 def load_model(model_class, model_name):
     model_id = load_model_id(model_name)
-    load_artifacts(model_name)
-    weights_path = artifacts_path / model_id / "model.ckpt" 
+    # Check if the model is already in the artifacts folder
+    if not os.path.exists(artifacts_path / model_id / ":*"):
+        print(f"Model {model_name} not found in artifacts folder. Downloading...")
+        artifact_dir = load_artifacts(model_id)
+    else:
+        dirs = os.listdir(artifacts_path / model_id)
+        dirs.sort()
+        artifact_dir = artifacts_path / model_id / dirs[-1]
+    weights_path = artifact_dir / "model.ckpt" 
     model = model_class.load_from_checkpoint(weights_path)
     return model
 
@@ -179,6 +191,18 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
         with open('hyperparams.json', 'w') as f:
             json.dump(optim_lr_rate, f, indent=2)
 
+
+
+def evaluate_model(model, model_name, data_loader, test=False):
+    trainer = pl.Trainer()
+    if test:
+        trainer.test(model, data_loader)
+    else:
+        trainer.validate(model, data_loader)
+    df = pd.DataFrame.from_records(trainer.logged_metrics).applymap(lambda x: x.item())
+    # Set dataframe index to model name
+    df.index = [model_name]
+    return df
 
 
 K = TypeVar('K')
