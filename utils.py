@@ -11,6 +11,7 @@ import random
 import string
 from typing import Generic, TypeVar
 
+import re
 import pandas as pd
 from pathlib import Path
 import wandb
@@ -65,13 +66,12 @@ def load_artifacts(model_id):
 def load_model(model_class, model_name):
     model_id = load_model_id(model_name)
     # Check if the model is already in the artifacts folder
-    if not os.path.exists(artifacts_path / model_id / ":*"):
+    folders = [file for file in os.listdir(artifacts_path) if re.search(model_id, file)]
+    if len(folders) == 0:
         print(f"Model {model_name} not found in artifacts folder. Downloading...")
         artifact_dir = load_artifacts(model_id)
     else:
-        dirs = os.listdir(artifacts_path / model_id)
-        dirs.sort()
-        artifact_dir = artifacts_path / model_id / dirs[-1]
+        artifact_dir = artifacts_path / folders[-1]
     weights_path = artifact_dir / "model.ckpt" 
     model = model_class.load_from_checkpoint(weights_path)
     return model
@@ -199,9 +199,9 @@ def evaluate_model(model, model_name, data_loader, test=False):
         trainer.test(model, data_loader)
     else:
         trainer.validate(model, data_loader)
-    df = pd.DataFrame.from_records(trainer.logged_metrics).applymap(lambda x: x.item())
+    trainer.logged_metrics["model_name"] = model_name
+    df = pd.DataFrame.from_records([trainer.logged_metrics], index="model_name").applymap(lambda x: x.item())
     # Set dataframe index to model name
-    df.index = [model_name]
     return df
 
 
