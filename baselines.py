@@ -176,7 +176,6 @@ class MajorityClassifier(pl.LightningModule):
 
         unique_triggers, counts_triggers = torch.unique(triggers_labels[triggers_labels != 2], return_counts=True)
         majority_triggers_class = unique_triggers[counts_triggers.argmax()].item()
-
         self.majority_emotions_class = majority_emotions_class
         self.majority_triggers_class = majority_triggers_class
     
@@ -232,14 +231,13 @@ def majority_metrics(majority_classifier, test_loader, num_classes_emotions, num
         y_hat_class_emotions = predictions_emotions
         y_hat_class_trigger_binary = predictions_trigger
         y_hat_class_trigger_multiclass = predictions_trigger
-
         y_class_emotions = batch["emotions"]
         y_class_trigger = batch["triggers"]
         # Mask padding
+
         mask = y_hat_class_trigger_binary != 2
         y_hat_class_trigger_binary = y_hat_class_trigger_binary * mask
         y_class_trigger_binary = y_class_trigger * mask
-        
         # Emotions metrics
         emotions_f1_cumulative.update(y_hat_class_emotions, y_class_emotions)
         emotions_f1_dialogues.update(y_hat_class_emotions, y_class_emotions)
@@ -263,6 +261,7 @@ def majority_metrics(majority_classifier, test_loader, num_classes_emotions, num
     # Triggers (Binary)
     triggers_f1_cumulative_binary_result = triggers_f1_cumulative_binary.compute().item()
     triggers_f1_dialogues_binary_result = triggers_f1_dialogues_binary.compute().item()
+    
     # Triggers (Multiclass)
     triggers_f1_cumulative_multiclass_result = triggers_f1_cumulative_multiclass.compute().item()
     triggers_f1_dialogues_multiclass_result = triggers_f1_dialogues_multiclass.compute().item()
