@@ -63,6 +63,7 @@ class RandomUniformClassifier(pl.LightningModule):
         return triggers_predictions
 
 '''
+
 Predictions of the Random Classifier and calculation of metrics
 
 '''
