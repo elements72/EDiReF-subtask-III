@@ -47,13 +47,13 @@ class RandomUniformClassifier(pl.LightningModule):
     def predict_emotions(self, X):
         batch_size = X.size(0)
         emotions_logits = self._random_state.randint(low=0, high=self.num_emotion_classes, size=(batch_size, X.size(1)))
-        emotions_predictions = torch.tensor(emotions_logits, dtype=torch.int).to(device)
+        emotions_predictions = torch.tensor(emotions_logits, dtype=torch.int)
         return emotions_predictions
 
     def predict_triggers(self, X):
         batch_size = X.size(0)
         triggers_logits = self._random_state.randint(low=0, high=self.num_trigger_classes, size=(batch_size, X.size(1)))
-        triggers_predictions = torch.tensor(triggers_logits, dtype=torch.int).to(device)
+        triggers_predictions = torch.tensor(triggers_logits, dtype=torch.int)
         return triggers_predictions
 
 '''
