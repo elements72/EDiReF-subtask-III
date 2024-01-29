@@ -127,12 +127,15 @@ def random_metrics(random, test_loader, num_classes_emotions, num_classes_trigge
 
     # Save Results
     metrics_data = {
-    "Emotions": [emotions_f1_cumulative_result, emotions_f1_dialogues_result],
-    "Triggers Binary": [triggers_f1_cumulative_binary_result, triggers_f1_dialogues_binary_result],
-    "Triggers Multiclass": [triggers_f1_cumulative_multiclass_result, triggers_f1_dialogues_multiclass_result],
-    }   
+        "F1 Cumulative_Emotions": [emotions_f1_cumulative_result],
+        "F1 Dialogues_Emotions": [emotions_f1_dialogues_result],
+        "F1 Cumulative_Triggers_Binary": [triggers_f1_cumulative_binary_result],
+        "F1 Dialogues_Triggers_Binary": [triggers_f1_dialogues_binary_result],
+        "F1 Cumulative_Triggers_Multiclass": [triggers_f1_cumulative_multiclass_result],
+        "F1 Dialogues_Triggers_Multiclass": [triggers_f1_dialogues_multiclass_result],
+    }
 
-    metrics_df = pd.DataFrame(metrics_data, index=["F1 Cumulative", "F1 Dialogues"])
+    metrics_df = pd.DataFrame(metrics_data, index=["Random Classifier"])
 
     return metrics_df, emotions_predictions, triggers_predictions
 
@@ -259,12 +262,24 @@ def majority_metrics(majority_classifier, test_loader, num_classes_emotions, num
 
     # Save Results
     metrics_data = {
-        "Emotions": [emotions_f1_cumulative_result, emotions_f1_dialogues_result],
-        "Triggers Binary": [triggers_f1_cumulative_binary_result, triggers_f1_dialogues_binary_result],
-        "Triggers Multiclass": [triggers_f1_cumulative_multiclass_result, triggers_f1_dialogues_multiclass_result],
+        "F1 Cumulative_Emotions": [emotions_f1_cumulative_result],
+        "F1 Dialogues_Emotions": [emotions_f1_dialogues_result],
+        "F1 Cumulative_Triggers_Binary": [triggers_f1_cumulative_binary_result],
+        "F1 Dialogues_Triggers_Binary": [triggers_f1_dialogues_binary_result],
+        "F1 Cumulative_Triggers_Multiclass": [triggers_f1_cumulative_multiclass_result],
+        "F1 Dialogues_Triggers_Multiclass": [triggers_f1_dialogues_multiclass_result],
     }
 
-    metrics_df = pd.DataFrame(metrics_data, index=["F1 Cumulative", "F1 Dialogues"])
+    metrics_df = pd.DataFrame(metrics_data, index=["Majority Classifier"])
 
     return metrics_df, emotions_predictions, triggers_predictions
 
+def aggregate_results(metrics_random, metrics_majority, metrics_random_val, metrics_majority_val):
+    
+    metrics_random.index = [f"{index} (test)" for index in metrics_random.index]
+    metrics_random_val.index = [f"{index} (val)" for index in metrics_random_val.index]
+    metrics_majority.index = [f"{index} (test)" for index in metrics_majority.index]
+    metrics_majority_val.index = [f"{index} (val)" for index in metrics_majority_val.index]
+    aggregated_df = pd.concat([metrics_random, metrics_random_val, metrics_majority, metrics_majority_val])
+
+    return aggregated_df
