@@ -297,6 +297,8 @@ class ClassificationTaskModel(pl.LightningModule):
         emotion_logits, trigger_logits = self(batch)
         emotion_logits, trigger_logits = self._transform_logits(emotion_logits, trigger_logits)
         #predictions = self._predict_from_logits(emotion_logits, trigger_logits)
+        emotion_logits = torch.nn.Softmax(dim=1)(emotion_logits)
+        trigger_logits = torch.nn.Softmax(dim=1)(trigger_logits)
 
         return {
             'emotions': emotion_logits,
