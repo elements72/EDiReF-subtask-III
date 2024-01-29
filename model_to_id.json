@@ -28,5 +28,10 @@
   "bert-attention-unfreeze-seed-9": "bert-attention-unfreeze-seed-9-FKXBH",
   "bert-attention-unfreeze-seed-42": "bert-attention-unfreeze-seed-42-ZQWQQ",
   "bert-attention-unfreeze-seed-150": "bert-attention-unfreeze-seed-150-D3VTP",
-  "bert-attention-unfreeze-seed-300": "bert-attention-unfreeze-seed-300-9VULD"
+  "bert-attention-unfreeze-seed-300": "bert-attention-unfreeze-seed-300-9VULD",
+  "emoberta-current-seed-6": "emoberta-current-seed-6-BHQJU",
+  "emoberta-current-seed-9": "emoberta-current-seed-9-KS1EY",
+  "emoberta-current-seed-42": "emoberta-current-seed-42-7KEGK",
+  "emoberta-current-seed-150": "emoberta-current-seed-150-MSZ1U",
+  "emoberta-current-seed-300": "emoberta-current-seed-300-0PIX9"
 }

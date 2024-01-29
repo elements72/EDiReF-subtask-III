@@ -47,8 +47,11 @@ def load_model_id(model_name):
                 model_id = file[model_name]
             except KeyError:
                 print(f"Model id for model {model_name} not found.")
+                model_id = None
     else:
         print("No model id file found.")
+    if model_id is None:
+        return None
     return f"model-{model_id}"
 
 def load_artifacts(model_id):
@@ -65,6 +68,9 @@ def load_artifacts(model_id):
     # load checkpoint
 def load_model(model_class, model_name):
     model_id = load_model_id(model_name)
+    if model_id is None:
+        print(f"Model {model_name} not found.")
+        return None
     # Check if the model is already in the artifacts folder
     folders = [file for file in os.listdir(artifacts_path) if re.search(model_id, file)]
     if len(folders) == 0:
@@ -193,12 +199,12 @@ def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=
 
 
 
-def evaluate_model(model, model_name, data_loader, test=False):
+def evaluate_model(model, model_name, data_loader, test=False, verbose=True):
     trainer = pl.Trainer()
     if test:
-        trainer.test(model, data_loader)
+        trainer.test(model, data_loader, verbose=verbose)
     else:
-        trainer.validate(model, data_loader)
+        trainer.validate(model, data_loader, verbose=verbose)
     trainer.logged_metrics["model_name"] = model_name
     df = pd.DataFrame.from_records([trainer.logged_metrics], index="model_name").applymap(lambda x: x.item())
     # Set dataframe index to model name

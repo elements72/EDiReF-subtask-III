@@ -46,6 +46,9 @@ class BertEncoder(pl.LightningModule):
         if 'roberta' in bert_model_name:
             self.model = RobertaModel.from_pretrained(bert_model_name)
             self.tokenizer = RobertaTokenizerFast.from_pretrained(bert_model_name, batched=True)
+        elif 'emoberta' in bert_model_name:
+            self.model = RobertaModel.from_pretrained(bert_model_name)
+            self.tokenizer = RobertaTokenizerFast.from_pretrained(bert_model_name, batched=True)
         else:
             self.model = BertModel.from_pretrained(bert_model_name)
             self.tokenizer = BertTokenizerFast.from_pretrained(bert_model_name, batched=True)
@@ -289,6 +292,16 @@ class ClassificationTaskModel(pl.LightningModule):
 
     def on_test_epoch_end(self):
         self.on_epoch_type_end('test')
+
+    def predict(self, batch):
+        emotion_logits, trigger_logits = self(batch)
+        emotion_logits, trigger_logits = self._transform_logits(emotion_logits, trigger_logits)
+        #predictions = self._predict_from_logits(emotion_logits, trigger_logits)
+
+        return {
+            'emotions': emotion_logits,
+            'triggers': trigger_logits
+        }
 
     def _transform_logits(self, emotion_logits, trigger_logits):
         trigger_logits = trigger_logits.squeeze(-1)
