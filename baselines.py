@@ -46,37 +46,32 @@ class RandomUniformClassifier(pl.LightningModule):
 
     def predict_emotions(self, X):
         batch_size = X.size(0)
-        # Mask to ignore padding in predictions
-        mask = X == 7
         emotions_logits = self._random_state.randint(low=0, high=self.num_emotion_classes, size=(batch_size, X.size(1)))
-        emotions_logits[mask] = 7
         emotions_predictions = torch.tensor(emotions_logits, dtype=torch.int).to(device)
         return emotions_predictions
 
     def predict_triggers(self, X):
         batch_size = X.size(0)
-        # Mask to ignore padding in predictions
-        mask = X == 2
         triggers_logits = self._random_state.randint(low=0, high=self.num_trigger_classes, size=(batch_size, X.size(1)))
-        triggers_logits[mask] = 2
-        triggers_predictions = torch.tensor(triggers_logits > 0.5, dtype=torch.int).to(device)
+        triggers_predictions = torch.tensor(triggers_logits, dtype=torch.int).to(device)
         return triggers_predictions
 
 '''
+
 Predictions of the Random Classifier and calculation of metrics
 
 '''
 def random_metrics(random, test_loader, num_classes_emotions, num_classes_triggers):
 
     #Metrics
-    emotions_f1_cumulative = F1ScoreCumulative(num_classes=num_classes_emotions, binary=False)
-    emotions_f1_dialogues = F1ScoreDialogues(num_classes=num_classes_emotions, binary=False)
+    emotions_f1_cumulative = F1ScoreCumulative(num_classes=num_classes_emotions, binary=False, padding_value=7)
+    emotions_f1_dialogues = F1ScoreDialogues(num_classes=num_classes_emotions, binary=False, padding_value=7)
 
-    triggers_f1_cumulative_binary = F1ScoreCumulative(num_classes=num_classes_triggers, binary=True)
-    triggers_f1_dialogues_binary = F1ScoreDialogues(num_classes=num_classes_triggers, binary=True)
+    triggers_f1_cumulative_binary = F1ScoreCumulative(num_classes=num_classes_triggers, binary=True, padding_value=2)
+    triggers_f1_dialogues_binary = F1ScoreDialogues(num_classes=num_classes_triggers, binary=True, padding_value=2)
 
-    triggers_f1_cumulative_multiclass = F1ScoreCumulative(num_classes=num_classes_triggers, binary=False)
-    triggers_f1_dialogues_multiclass = F1ScoreDialogues(num_classes=num_classes_triggers, binary=False)
+    triggers_f1_cumulative_multiclass = F1ScoreCumulative(num_classes=num_classes_triggers, binary=False, padding_value=2)
+    triggers_f1_dialogues_multiclass = F1ScoreDialogues(num_classes=num_classes_triggers, binary=False, padding_value=2)
 
     #Computing Random predictions
     emotions_predictions = []
@@ -99,14 +94,17 @@ def random_metrics(random, test_loader, num_classes_emotions, num_classes_trigge
         y_hat_class_trigger_multiclass = predictions_trigger
         y_class_emotions = batch["emotions"]
         y_class_trigger = batch["triggers"]
-
+        
+    
+        y_hat_class_trigger_binary = y_hat_class_trigger_binary 
+        y_class_trigger_binary = y_class_trigger 
         # Emotions metrics
         emotions_f1_cumulative.update(y_hat_class_emotions, y_class_emotions)
         emotions_f1_dialogues.update(y_hat_class_emotions, y_class_emotions)
 
         # Triggers metrics (binary=True)
-        triggers_f1_cumulative_binary.update(y_hat_class_trigger_binary, y_class_trigger)
-        triggers_f1_dialogues_binary.update(y_hat_class_trigger_binary, y_class_trigger)
+        triggers_f1_cumulative_binary.update(y_hat_class_trigger_binary, y_class_trigger_binary)
+        triggers_f1_dialogues_binary.update(y_hat_class_trigger_binary, y_class_trigger_binary)
 
         # Triggers metrics (binary=False)
         triggers_f1_cumulative_multiclass.update(y_hat_class_trigger_multiclass, y_class_trigger)
@@ -171,28 +169,21 @@ class MajorityClassifier(pl.LightningModule):
         triggers_labels = torch.cat(triggers_list, dim=1)
 
         unique_emotions, counts_emotions = torch.unique(emotions_labels[emotions_labels != 7], return_counts=True)
-        majority_emotions_class = unique_emotions[counts_emotions.argmax()].item() if unique_emotions.numel() > 0 else self.padding_value_emotions
-
-
+        majority_emotions_class = unique_emotions[counts_emotions.argmax()].item() 
         unique_triggers, counts_triggers = torch.unique(triggers_labels[triggers_labels != 2], return_counts=True)
         majority_triggers_class = unique_triggers[counts_triggers.argmax()].item()
-
         self.majority_emotions_class = majority_emotions_class
         self.majority_triggers_class = majority_triggers_class
     
     def predict_emotions(self, x):
-        padded_indices = (x == self.padding_value_emotions)
-        predictions = torch.full_like(x, fill_value=self.padding_value_emotions)
-        predictions[~padded_indices] = self.majority_emotions_class
+        predictions = torch.full_like(x, fill_value=self.majority_emotions_class)
         
         return predictions
 
 
     def predict_triggers(self, x):
-        padded_indices = (x == self.padding_value_triggers)
         predictions = torch.full_like(x, fill_value=self.majority_triggers_class)
-        # Ignore the padding value in predictions
-        predictions[padded_indices] = self.padding_value_triggers
+        
         
         return predictions
 
@@ -203,15 +194,15 @@ Predictions of the Majority Classifier and calculation of metrics
 
 def majority_metrics(majority_classifier, test_loader, num_classes_emotions, num_classes_triggers):
 
-    # Metrics
-    emotions_f1_cumulative = F1ScoreCumulative(num_classes=num_classes_emotions, binary=False)
-    emotions_f1_dialogues = F1ScoreDialogues(num_classes=num_classes_emotions, binary=False)
+    #Metrics
+    emotions_f1_cumulative = F1ScoreCumulative(num_classes=num_classes_emotions, binary=False, padding_value=7)
+    emotions_f1_dialogues = F1ScoreDialogues(num_classes=num_classes_emotions, binary=False, padding_value=7)
 
-    triggers_f1_cumulative_binary = F1ScoreCumulative(num_classes=num_classes_triggers, binary=True)
-    triggers_f1_dialogues_binary = F1ScoreDialogues(num_classes=num_classes_triggers, binary=True)
+    triggers_f1_cumulative_binary = F1ScoreCumulative(num_classes=num_classes_triggers, binary=True, padding_value=2)
+    triggers_f1_dialogues_binary = F1ScoreDialogues(num_classes=num_classes_triggers, binary=True, padding_value=2)
 
-    triggers_f1_cumulative_multiclass = F1ScoreCumulative(num_classes=num_classes_triggers, binary=False)
-    triggers_f1_dialogues_multiclass = F1ScoreDialogues(num_classes=num_classes_triggers, binary=False)
+    triggers_f1_cumulative_multiclass = F1ScoreCumulative(num_classes=num_classes_triggers, binary=False, padding_value=2)
+    triggers_f1_dialogues_multiclass = F1ScoreDialogues(num_classes=num_classes_triggers, binary=False, padding_value=2)
 
     # Computing Majority predictions
     emotions_predictions = []
@@ -232,14 +223,12 @@ def majority_metrics(majority_classifier, test_loader, num_classes_emotions, num
         y_hat_class_emotions = predictions_emotions
         y_hat_class_trigger_binary = predictions_trigger
         y_hat_class_trigger_multiclass = predictions_trigger
-
         y_class_emotions = batch["emotions"]
         y_class_trigger = batch["triggers"]
         # Mask padding
-        mask = y_hat_class_trigger_binary != 2
-        y_hat_class_trigger_binary = y_hat_class_trigger_binary * mask
-        y_class_trigger_binary = y_class_trigger * mask
-        
+
+        y_hat_class_trigger_binary = y_hat_class_trigger_binary
+        y_class_trigger_binary = y_class_trigger
         # Emotions metrics
         emotions_f1_cumulative.update(y_hat_class_emotions, y_class_emotions)
         emotions_f1_dialogues.update(y_hat_class_emotions, y_class_emotions)
@@ -263,6 +252,7 @@ def majority_metrics(majority_classifier, test_loader, num_classes_emotions, num
     # Triggers (Binary)
     triggers_f1_cumulative_binary_result = triggers_f1_cumulative_binary.compute().item()
     triggers_f1_dialogues_binary_result = triggers_f1_dialogues_binary.compute().item()
+    
     # Triggers (Multiclass)
     triggers_f1_cumulative_multiclass_result = triggers_f1_cumulative_multiclass.compute().item()
     triggers_f1_dialogues_multiclass_result = triggers_f1_dialogues_multiclass.compute().item()
