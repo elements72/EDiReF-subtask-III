@@ -33,5 +33,7 @@
   "emoberta-current-seed-9": "emoberta-current-seed-9-KS1EY",
   "emoberta-current-seed-42": "emoberta-current-seed-42-7KEGK",
   "emoberta-current-seed-150": "emoberta-current-seed-150-MSZ1U",
-  "emoberta-current-seed-300": "emoberta-current-seed-300-0PIX9"
+  "emoberta-current-seed-300": "emoberta-current-seed-300-0PIX9",
+  "bert-trig-seed-{'lr': 0.0001}": "bert-trig-seed-{'lr': 0.0001}-PABVJ",
+  "bert-trig-seed-42": "bert-trig-seed-42-YLD4V"
 }

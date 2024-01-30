@@ -136,6 +136,7 @@ class MeldDataModule(LightningDataModule):
         eos = "[EOS]" if bert else "</s>"
         sep = "[SEP]" if bert else "</s>"
 
+        basic_sentence = f"{speakers[t].upper()}: {dialogue[t]}"
         sequence = f"{sep} {speakers[t].upper()}: {dialogue[t]} {sep}"
         for i in range(1, len(dialogue)):
             # Append next utterance
@@ -145,7 +146,7 @@ class MeldDataModule(LightningDataModule):
             if t-i >= 0:
                 sequence = f" {speakers[t-i].upper()}: {dialogue[t-i]} " + sequence
         sequence = sequence
-        return sequence
+        return sequence, basic_sentence
 
     def collate_context(self, batch):
         padding_value_emotion = 7
@@ -167,7 +168,7 @@ class MeldDataModule(LightningDataModule):
             # copy the utterances, this is necessary because list are mutable
             dialogue = u.copy()
             for t in range(len(u)):
-                sequence = self.encode_utterance(t, u, speakers[i])
+                sequence, _ = self.encode_utterance(t, u, speakers[i])
                 dialogue[t] = sequence
             for _ in range(max_len_utterances - len(u)):
                 dialogue.append('')
@@ -180,6 +181,46 @@ class MeldDataModule(LightningDataModule):
             'utterances': new_utterances,
             'triggers': triggers
         }
+
+    def collate_context_senteces(self, batch):
+        padding_value_emotion = 7
+        padding_value_trigger = 2
+        speakers, emotions, utterances, triggers = zip(*batch)
+
+        emotions = [torch.tensor(e, dtype=torch.long) for e in emotions]
+        triggers = [torch.tensor(t, dtype=torch.long) for t in triggers]
+
+        emotions = torch.nn.utils.rnn.pad_sequence(emotions, batch_first=True, padding_value=padding_value_emotion)
+        triggers = torch.nn.utils.rnn.pad_sequence(triggers, batch_first=True, padding_value=padding_value_trigger)
+        # Pad with a PAD sentence
+
+        max_len_utterances = max([len(u) for u in utterances])
+
+        new_utterances = []
+        new_context = []
+        # For each dialogue
+        for i, u in enumerate(utterances):
+            # copy the utterances, this is necessary because list are mutable
+            dialogue = u.copy()
+            dialogue_context = u.copy()
+            for t in range(len(u)):
+                context, utterance = self.encode_utterance(t, u, speakers[i])
+                dialogue[t] = utterance
+                dialogue_context[t] = context
+            for _ in range(max_len_utterances - len(u)):
+                dialogue.append('')
+
+            new_utterances.append(dialogue)
+            new_context.append(context)
+
+        return {
+            'speakers': speakers,
+            'emotions': emotions,
+            'utterances': new_utterances,
+            'triggers': triggers,
+            'context': new_context
+        }
+
 
     def train_dataloader(self, collate_context=False, batch_size=None):
         if collate_context:
@@ -201,9 +242,11 @@ class MeldDataModule(LightningDataModule):
         return DataLoader(self.val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn,
                           num_workers=self.num_workers)
 
-    def test_dataloader(self, collate_context=False, batch_size=None):
-        if collate_context:
+    def test_dataloader(self, collate_context=None, batch_size=None):
+        if collate_context == 'context':
             collate_fn = self.collate_context
+        elif collate_context == 'context_sentence':
+            collate_fn = self.collate_context_senteces
         else:
             collate_fn = self.collate
         if batch_size is None:
