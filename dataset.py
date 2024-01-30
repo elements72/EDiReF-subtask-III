@@ -211,7 +211,7 @@ class MeldDataModule(LightningDataModule):
                 dialogue.append('')
 
             new_utterances.append(dialogue)
-            new_context.append(context)
+            new_context.append(dialogue_context)
 
         return {
             'speakers': speakers,
@@ -223,8 +223,10 @@ class MeldDataModule(LightningDataModule):
 
 
     def train_dataloader(self, collate_context=False, batch_size=None):
-        if collate_context:
+        if collate_context == 'context':
             collate_fn = self.collate_context
+        elif collate_context == 'context_sentence':
+            collate_fn = self.collate_context_senteces
         else:
             collate_fn = self.collate
         if batch_size is None:
@@ -233,8 +235,10 @@ class MeldDataModule(LightningDataModule):
                           num_workers=self.num_workers)
 
     def val_dataloader(self, collate_context=False, batch_size=None):
-        if collate_context:
+        if collate_context == 'context':
             collate_fn = self.collate_context
+        elif collate_context == 'context_sentence':
+            collate_fn = self.collate_context_senteces
         else:
             collate_fn = self.collate
         if batch_size is None:

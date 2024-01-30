@@ -8,7 +8,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class BERTrig(ClassificationTaskModel):
 
     def __init__(self, emotion_output_dim=7, trigger_output_dim=2, freeze_context=False, freeze_sentence=True,
-                 sentence_encoder_name='bert-base-uncased', context_encoder_name='tae898/emoberta-large' ,use_encoder_cache: bool = True, encoder_cache_size: int = 100_000,
+                 context_encoder_name='bert-base-uncased', sentence_encoder_name='tae898/emoberta-large' ,use_encoder_cache: bool = True, encoder_cache_size: int = 100_000,
                  **kwargs):
         
         context_encoder = BertEncoder(context_encoder_name, emotion_output_dim, trigger_output_dim, freeze_context,
