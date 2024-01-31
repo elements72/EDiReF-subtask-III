@@ -209,6 +209,7 @@ class MeldDataModule(LightningDataModule):
                 dialogue_context[t] = context
             for _ in range(max_len_utterances - len(u)):
                 dialogue.append('')
+                dialogue_context.append('')
 
             new_utterances.append(dialogue)
             new_context.append(dialogue_context)

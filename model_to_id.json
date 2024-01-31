@@ -34,6 +34,14 @@
   "emoberta-current-seed-42": "emoberta-current-seed-42-7KEGK",
   "emoberta-current-seed-150": "emoberta-current-seed-150-MSZ1U",
   "emoberta-current-seed-300": "emoberta-current-seed-300-0PIX9",
-  "bert-trig-seed-{'lr': 0.0001}": "bert-trig-seed-{'lr': 0.0001}-PABVJ",
-  "bert-trig-seed-42": "bert-trig-seed-42-YLD4V"
+  "emoberta-lstm-seed-6": "emoberta-lstm-seed-6-D6ZAZ",
+  "emoberta-lstm-seed-9": "emoberta-lstm-seed-9-L2WAP",
+  "emoberta-lstm-seed-42": "emoberta-lstm-seed-42-O3T4C",
+  "emoberta-lstm-seed-150": "emoberta-lstm-seed-150-PXMMO",
+  "emoberta-lstm-seed-300": "emoberta-lstm-seed-300-61WLG",
+  "bert-trig-seed-6": "bert-trig-seed-6-UIWPI",
+  "bert-trig-seed-9": "bert-trig-seed-9-CBTJD",
+  "bert-trig-seed-42": "bert-trig-seed-42-9VB11",
+  "bert-trig-seed-150": "bert-trig-seed-150-A0DOF",
+  "bert-trig-seed-300": "bert-trig-seed-300-R0BKZ"
 }
