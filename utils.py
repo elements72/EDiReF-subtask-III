@@ -66,7 +66,7 @@ def load_artifacts(model_id):
     return Path(artifact_dir)
 
     # load checkpoint
-def load_model(model_class, model_name):
+def load_model(model_class, model_name, hyperparameters=None):
     model_id = load_model_id(model_name)
     if model_id is None:
         print(f"Model {model_name} not found.")
@@ -79,7 +79,10 @@ def load_model(model_class, model_name):
     else:
         artifact_dir = artifacts_path / folders[-1]
     weights_path = artifact_dir / "model.ckpt" 
-    model = model_class.load_from_checkpoint(weights_path)
+    if hyperparameters is None:
+        model = model_class.load_from_checkpoint(weights_path)
+    else:
+        model = model_class.load_from_checkpoint(weights_path, **hyperparameters)
     return model
 
 def test_model(model, test_loader):
