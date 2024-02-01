@@ -130,7 +130,7 @@ class MeldDataModule(LightningDataModule):
             'triggers': batch_triggers
         }
     
-    def encode_utterance(self, t, dialogue, speakers, bert=False):
+    def encode_utterance(self, t, dialogue, speakers, bert=True):
         # Not used, tokenizer add it automatically
         cls = "[CLS]" if bert else "<s>"
         eos = "[EOS]" if bert else "</s>"
@@ -209,6 +209,7 @@ class MeldDataModule(LightningDataModule):
                 dialogue_context[t] = context
             for _ in range(max_len_utterances - len(u)):
                 dialogue.append('')
+                dialogue_context.append('')
 
             new_utterances.append(dialogue)
             new_context.append(dialogue_context)
