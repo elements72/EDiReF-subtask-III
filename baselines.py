@@ -98,6 +98,7 @@ def random_metrics(random, test_loader, num_classes_emotions, num_classes_trigge
     
         y_hat_class_trigger_binary = y_hat_class_trigger_binary 
         y_class_trigger_binary = y_class_trigger 
+
         # Emotions metrics
         emotions_f1_cumulative.update(y_hat_class_emotions, y_class_emotions)
         emotions_f1_dialogues.update(y_hat_class_emotions, y_class_emotions)
