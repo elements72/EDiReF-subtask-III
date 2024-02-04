@@ -46,7 +46,7 @@ class RandomUniformClassifier(pl.LightningModule):
 
     def predict_emotions(self, X):
         batch_size = X.size(0)
-        emotions_logits = self._random_state.randint(low=0, high=self.num_emotion_classes, size=(batch_size, X.size(1)))
+        emotions_logits = self._random_state.randint(low=0, high=self.num_emotion_classes, size=(batch_size, X.size(1)), dtype=np.int)
         emotions_predictions = torch.tensor(emotions_logits, dtype=torch.int)
         return emotions_predictions
 
@@ -101,15 +101,15 @@ def random_metrics(random, test_loader, num_classes_emotions, num_classes_trigge
 
         # Emotions metrics
         emotions_f1_cumulative.update(y_hat_class_emotions, y_class_emotions)
-        emotions_f1_dialogues.update(y_hat_class_emotions, y_class_emotions)
+        emotions_f1_dialogues.update(y_hat_class_emotions.to(torch.int64), y_class_emotions.to(torch.int64))
 
         # Triggers metrics (binary=True)
         triggers_f1_cumulative_binary.update(y_hat_class_trigger_binary, y_class_trigger_binary)
-        triggers_f1_dialogues_binary.update(y_hat_class_trigger_binary, y_class_trigger_binary)
+        triggers_f1_dialogues_binary.update(y_hat_class_trigger_binary.to(torch.int64), y_class_trigger_binary.to(torch.int64))
 
         # Triggers metrics (binary=False)
         triggers_f1_cumulative_multiclass.update(y_hat_class_trigger_multiclass, y_class_trigger)
-        triggers_f1_dialogues_multiclass.update(y_hat_class_trigger_multiclass, y_class_trigger)
+        triggers_f1_dialogues_multiclass.update(y_hat_class_trigger_multiclass.to(torch.int64), y_class_trigger.to(torch.int64))
 
     # Concatenate the predictions
     emotions_predictions = torch.cat(emotions_predictions, dim=1)

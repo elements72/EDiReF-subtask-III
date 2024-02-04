@@ -55,7 +55,9 @@ def load_model_id(model_name):
     return f"model-{model_id}"
 
 def load_artifacts(model_id):
-
+    '''
+    Downloads the artifacts from W&B and returns the path to the downloaded folder.
+    '''
     run = wandb.init(project="EDiReF-subtask-III", job_type="download_artifacts")
 
     # Query W&B for an artifact and mark it as input to this run
@@ -65,7 +67,6 @@ def load_artifacts(model_id):
     run.finish()
     return Path(artifact_dir)
 
-    # load checkpoint
 def load_model(model_class, model_name, hyperparameters=None):
     model_id = load_model_id(model_name)
     if model_id is None:
@@ -109,6 +110,7 @@ def train_model(model_class, model_name, train_loader, val_loader, seed=42, epoc
     model = model_class(**hyperparameters)
 
     model_name = f"{model_name}-seed-{seed}"
+    # Since wandb needs a unique id for saving the models weights, we generate a random id for the model.
     model_id = generate_model_id(model_name)
     save_model_id(model_name, model_id)
     seed_everything(seed, workers=True)
@@ -152,6 +154,9 @@ def train_model_seeds(model_class, model_name, train_loader, val_loader, seeds, 
 
 
 def hyperparameters_tuning(model_class, model_name, datamodule, hyperparameters=None):
+    '''
+    Right now it only find the best learning rate for the model. The learning rate is saved in a file called hyperparams.json
+    '''
     if hyperparameters is None:
         hyperparameters = {}
 

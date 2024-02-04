@@ -23,10 +23,13 @@ class UtteranceDataset(Dataset):
 
 
 class MeldDataModule(LightningDataModule):
+    '''
+    Dataset for the MELD-FR dataset.
+    '''
     def __init__(self, data_path='./data/', batch_size=16, num_workers=0):
         super().__init__()
         self.data_path = Path(data_path)
-
+        # Set data path
         self.dataset_path = self.data_path / 'MELD_efr.json'
         self.train_data_path = self.data_path / 'MELD_train_efr.json'
         self.val_data_path = self.data_path / 'MELD_val_efr.json'
@@ -45,6 +48,9 @@ class MeldDataModule(LightningDataModule):
         self.test_dataset = None
 
     def pre_process(self, data):
+        '''
+        Encode emotions and remove NaN values from triggers.
+        '''
         tmp = data.copy()
         tmp['emotions'] = data['emotions'].apply(lambda x: self.emotion_encoder.transform(x))
         tmp['triggers'] = data['triggers'].apply(lambda x: [0 if i == np.nan or i == None else i for i in x])
@@ -52,6 +58,9 @@ class MeldDataModule(LightningDataModule):
         return tmp
 
     def prepare_data(self) -> None:
+        '''
+        Create the val and test sets  if not already available.
+        '''
         # Check if val and test sets are available
         if not self.val_data_path.exists() or not self.test_data_path.exists() or not self.train_data_path.exists():
             # print('Generating val and test sets...')
@@ -74,6 +83,9 @@ class MeldDataModule(LightningDataModule):
             pass
 
     def setup(self, stage=None) -> None:
+        '''
+        Creates the datasets.
+        '''
         # Load the data
         # print('Loading data...')
         self.train_data = pd.read_json(self.train_data_path)
@@ -93,6 +105,9 @@ class MeldDataModule(LightningDataModule):
         self.test_dataset = UtteranceDataset(self.test_data)
 
     def collate(self, batch):
+        '''
+        Standard collate for the 'sentence' mode of the dataloader.
+        '''
         padding_value_emotion = len(self.emotion_encoder.classes_)
         padding_value_trigger = 2
         batch_speakers, batch_emotions, batch_utterances, batch_triggers = zip(*batch)
@@ -133,7 +148,7 @@ class MeldDataModule(LightningDataModule):
     def encode_utterance(self, t, dialogue, speakers, bert=True):
         # Not used, tokenizer add it automatically
         cls = "[CLS]" if bert else "<s>"
-        eos = "[EOS]" if bert else "</s>"
+        eos = "[EOS]" if bert else "</s>"   
         sep = "[SEP]" if bert else "</s>"
 
         basic_sentence = f"{speakers[t].upper()}: {dialogue[t]}"
@@ -149,6 +164,9 @@ class MeldDataModule(LightningDataModule):
         return sequence, basic_sentence
 
     def collate_context(self, batch):
+        '''
+        Standard collate for the 'context' mode of the dataloader.
+        '''
         padding_value_emotion = 7
         padding_value_trigger = 2
         speakers, emotions, utterances, triggers = zip(*batch)
@@ -183,6 +201,9 @@ class MeldDataModule(LightningDataModule):
         }
 
     def collate_context_senteces(self, batch):
+        '''
+        Standard collate for the 'context_sentence' mode of the dataloader.
+        '''
         padding_value_emotion = 7
         padding_value_trigger = 2
         speakers, emotions, utterances, triggers = zip(*batch)
