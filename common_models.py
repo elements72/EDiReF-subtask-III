@@ -161,11 +161,11 @@ class BertEncoder(pl.LightningModule):
         non_padding_indexes = [i for i, x in enumerate(flattened_utterances) if x != ""]
 
         # We tokenize the non padding utterances
-        tokenized = self.tokenizer(non_padding_utterances, return_tensors='pt', padding=True, truncation=True)
+        tokenized = self.tokenizer(non_padding_utterances, return_tensors='pt', padding=True, truncation=True).to(device)
         out = torch.zeros((len(flattened_utterances), self.model.config.hidden_size)).to(device)
 
         # Add to the zero tensor the embeddings of the non padding utterances
-        out[non_padding_indexes] = self.model(**tokenized).last_hidden_state[:, 0, :]
+        out[non_padding_indexes] = self.model(**tokenized).last_hidden_state[:, 0, :].to(device)
         return out
 
     def encode(self, utterances) -> torch.Tensor:
