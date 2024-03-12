@@ -17,7 +17,7 @@ To utilize this project, follow these steps:
         git clone https://github.com/elements72/EDiReF-subtask-III.git
 
 2. **Run the Notebook:**
-   Execute the Jupyter Notebook named `A1.ipynb` by running:
+   Execute the Jupyter Notebook named `main.ipynb` by running:
 
         jupyter notebook main.ipynb
 
